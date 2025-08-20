@@ -1,0 +1,5 @@
+requests
+fastapi
+langchain
+python-dotenv
+python-multipart

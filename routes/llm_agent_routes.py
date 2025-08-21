@@ -22,6 +22,8 @@ async def process_json(
     try:
         raw = await json_file.read()
         json_data = json.loads(raw)
+        if not json_data:
+            raise HTTPException(status_code=400, detail="El JSON está vacío o mal formado.")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al leer el JSON: {e}")
 

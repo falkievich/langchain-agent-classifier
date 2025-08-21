@@ -142,7 +142,7 @@ def buscar_entradas_en_lista(
         _ignore = list(ignore_keys)
 
     # ----- Paso 1: búsqueda normal -----
-    needle = normalize_and_clean(str(needle)) # Modificar, ya se está normalizando en langchain_agent
+    needle = normalize_and_clean(str(needle)) # Modificar, ya se está normalizando en langchain_agent.
     for entry in lista:
         for field in fields:
             # si el campo es anidado, recorremos la ruta

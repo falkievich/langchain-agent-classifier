@@ -1,14 +1,14 @@
 # Tools/resolvers_tool.py
-from typing import Any, Dict, List, Tuple, Callable
+from typing import Any, Dict, List, Callable
 
 # ===== Importá SOLO las listas de funciones =====
-from Tools.abogado_tool import ALL_ABOGADO_FUNCS
-from Tools.expediente_tool import ALL_EXPEDIENTES_FUNCS
-from Tools.persona_legajo_tool import ALL_PERSONAS_FUNCS
-from Tools.dependencias_vistas_tool import ALL_DEPENDENCIAS_FUNCS
-from Tools.materia_delitos_tool import ALL_MATERIA_DELITOS_FUNCS
-from Tools.radicacion_tool import ALL_RADICACIONES_FUNCS
-from Tools.arrays_tool import ALL_ARRAYS_FUNCS
+from tools.abogado_tool import ALL_ABOGADO_FUNCS
+from tools.expediente_tool import ALL_EXPEDIENTES_FUNCS
+from tools.persona_legajo_tool import ALL_PERSONAS_FUNCS
+from tools.dependencias_vistas_tool import ALL_DEPENDENCIAS_FUNCS
+from tools.materia_delitos_tool import ALL_MATERIA_DELITOS_FUNCS
+from tools.radicacion_tool import ALL_RADICACIONES_FUNCS
+from tools.arrays_tool import ALL_ARRAYS_FUNCS
 
 # ---------- Registry global: nombre → función ----------
 _ALL_LISTS = (

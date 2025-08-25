@@ -1,4 +1,4 @@
-from funcs.langchain.langchain_utility import buscar_entradas_en_lista, _to_bool_flag # Importamos las utilidades
+from funcs.helpers_and_utility.langchain_utility import buscar_entradas_en_lista, _to_bool_flag, extraer_campos_en_lista # Importamos las utilidades
 from typing import Any, Dict, List
 
 # ————— Herramientas (Tools) para extracción en el JSON —————
@@ -92,6 +92,77 @@ def buscar_persona_por_estado_detencion(json_data: Dict[str, Any], estado_bolean
     ]
     return {"personas_por_estado_detencion": matches}
 
+#-------------------------------------------------------------------------  # Devuelve la persona o personas que coincidan con la fecha de nacimiento exacta
+def buscar_persona_por_fecha_nacimiento(json_data: Dict[str, Any], fecha_nacimiento: str) -> Dict[str, Any]:
+    matches = buscar_entradas_en_lista(
+        json_data,
+        list_key="personas_legajo",
+        fields=["fecha_nacimiento"],
+        needle=fecha_nacimiento,
+        exact=False
+    )
+    return {"personas_por_fecha_nacimiento": matches}
+
+#-------------------------------------------------------------------------  Devuelve todas las personas con sus fechas de participación
+def listar_todas_las_fecha_persona_participacion(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Devuelve todas las personas con sus fechas de participación.
+    Retorna: nombre_completo, rol, fecha_desde, fecha_hasta.
+    """
+    filas = extraer_campos_en_lista(
+        json_data,
+        "personas_legajo",
+        ["nombre_completo","numero_documento" , "rol", "fecha_desde", "fecha_hasta"]
+    )
+    return {"personas_participacion": filas}
+
+#-------------------------------------------------------------------------  Devuelve todas las personas con sus vínculos
+def listar_todas_las_fechas_persona_vinculos(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Devuelve todas las personas con sus vínculos.
+    Retorna: nombre_completo, rol, vinculos.descripcion_vinculo,
+             vinculos.fecha_desde, vinculos.fecha_hasta.
+    """
+    filas = extraer_campos_en_lista(
+        json_data,
+        "personas_legajo",
+        ["nombre_completo","numero_documento","rol", "vinculos.descripcion_vinculo", "vinculos.fecha_desde", "vinculos.fecha_hasta"]
+    )
+    return {"personas_vinculos": filas}
+
+
+#-------------------------------------------------------------------------  Devuelve personas cuya fecha de participación coincida con la fecha indicada
+def buscar_persona_por_fecha_participacion(json_data: Dict[str, Any], fecha: str) -> Dict[str, Any]:
+    """
+    Busca personas en el legajo que coincidan con una fecha de participación:
+    - fecha_desde: Fecha desde la cual la persona está involucrada en el caso judicial.
+    - fecha_hasta: Fecha hasta la cual la persona estuvo involucrada en el caso judicial.
+    """
+    matches = buscar_entradas_en_lista(
+        json_data,
+        list_key="personas_legajo",
+        fields=["fecha_desde", "fecha_hasta"],
+        needle=fecha,
+        exact=False
+    )
+    return {"personas_por_fecha_participacion": matches}
+
+#-------------------------------------------------------------------------  Devuelve personas según la fecha de inicio o fin del vínculo
+def buscar_persona_por_fecha_vinculo(json_data: Dict[str, Any], fecha: str) -> Dict[str, Any]:
+    """
+    Busca personas en el legajo que tengan vínculos activos o finalizados en la fecha indicada:
+    - vinculos.fecha_desde: Fecha desde la cual inició el vínculo con el expediente.
+    - vinculos.fecha_hasta: Fecha en la cual finalizó el vínculo con el expediente.
+    """
+    matches = buscar_entradas_en_lista(
+        json_data,
+        list_key="personas_legajo",
+        fields=["vinculos.fecha_desde", "vinculos.fecha_hasta"],
+        needle=fecha,
+        exact=False
+    )
+    return {"personas_por_fecha_vinculo": matches}
+
 # ————— Listado Agregado de Funciones (personas_legajo) —————
 ALL_PERSONAS_FUNCS = [
     buscar_persona_por_numero_documento_dni,
@@ -102,4 +173,9 @@ ALL_PERSONAS_FUNCS = [
     buscar_persona_por_nombre,
     buscar_persona_por_tipo_documento,
     buscar_persona_por_estado_detencion,
+    buscar_persona_por_fecha_nacimiento,
+    listar_todas_las_fecha_persona_participacion,
+    listar_todas_las_fechas_persona_vinculos,
+    buscar_persona_por_fecha_participacion,
+    buscar_persona_por_fecha_vinculo,
 ]

@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from funcs.langchain.langchain_utility import buscar_entradas_en_lista
+from funcs.helpers_and_utility.langchain_utility import buscar_entradas_en_lista, extraer_campos_en_lista
 
 # ————— Tools: radicaciones —————
 
@@ -21,6 +21,15 @@ def buscar_radicacion_por_organismo_descripcion(json_data: Dict[str, Any], descr
     matches = buscar_entradas_en_lista(json_data, "radicaciones", ["organismo_actual_descripcion"], descripcion, exact=False, ignore_keys=IGNORE_RAD)
     return {"radicaciones_por_organismo_descripcion": matches}
 
+#-------------------------------------------------------------------------  Devuelve todas las radicaciones con sus fechas (fecha_desde y fecha_hasta)
+def listar_todas_las_fechas_radicaciones(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    filas = extraer_campos_en_lista(
+        json_data,
+        "radicaciones",
+        ["organismo_actual_descripcion", "fecha_desde", "fecha_hasta"]
+    )
+    return {"fechas_radicaciones": filas}
+
 # -------------------------------- Buscar por fecha_desde o fecha_hasta (parcial)
 def buscar_radicacion_por_fecha(json_data: Dict[str, Any], fecha: str) -> Dict[str, Any]:
     matches = buscar_entradas_en_lista(json_data, "radicaciones", ["fecha_desde", "fecha_hasta"], fecha, exact=False, ignore_keys=IGNORE_RAD)
@@ -41,6 +50,7 @@ ALL_RADICACIONES_FUNCS = [
     listar_todas_las_radicaciones_y_movimiento_expediente,
     buscar_radicacion_por_organismo_codigo,
     buscar_radicacion_por_organismo_descripcion,
+    listar_todas_las_fechas_radicaciones,
     buscar_radicacion_por_fecha,
     buscar_radicacion_por_motivo_codigo,
     buscar_radicacion_por_motivo_descripcion,

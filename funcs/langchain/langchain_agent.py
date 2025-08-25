@@ -17,12 +17,6 @@ from tools_wrappers.materia_delitos_wrappers import make_materia_delitos_tools
 from tools_wrappers.radicacion_wrappers import make_radicacion_tools
 from tools_wrappers.arrays_wrappers import make_arrays_tools
 
-# Resolver tools
-# from funcs.langchain.langchain_resolvers_tool import (
-#     make_resolver_ambiguos_tools,
-#     make_resolver_area_tools,
-# )
-
 # ------------ Cargar el archivo .env ------------ 
 load_dotenv()
 
@@ -51,6 +45,15 @@ usa la función de LISTADO del dominio.
    • '¿qué delito hay en este pdf?'  ->  listar_todos_los_delitos()
    • 'mostrame las radicaciones de este json'  ->  listar_todas_las_radicaciones_y_movimiento_expediente()
    • 'ver dependencias en este csv'  ->  listar_todas_las_dependencias()
+
+FORMATO DE FECHAS (OBLIGATORIO):
+— Siempre convierte cualquier fecha que mencione el usuario al formato ISO corto: AAAA-MM-DD.
+   Ejemplos:
+   • '21.03.2025'  ->  '2025-03-21'
+   • '21/03/2025'  ->  '2025-03-21'
+   • '21 de marzo de 2025'  ->  '2025-03-21'
+   • 'marzo 21 2025'  ->  '2025-03-21'
+— Si la fecha incluye hora o zona horaria, IGNÓRALA y conserva solo AAAA-MM-DD.
 """
 
 # ----------------- Prefix -----------------
@@ -61,7 +64,11 @@ def run_agent_with_tools(json_data: Dict[str, Any], user_prompt: str) -> Dict[st
     """
     Ejecuta el agente con las Tools y devuelve el resultado en JSON.
     """
-    print("Prompt del usuario: ",user_prompt)
+    print("\n==================== NUEVA EJECUCIÓN ====================")
+    print("Prompt del usuario:", user_prompt)
+    print("----------------------------------------------------------")
+
+    # Construir Tools dinámicamente
     tools = (
         make_abogado_tools(json_data)
         + make_expediente_tools(json_data)
@@ -70,10 +77,16 @@ def run_agent_with_tools(json_data: Dict[str, Any], user_prompt: str) -> Dict[st
         + make_materia_delitos_tools(json_data)
         + make_radicacion_tools(json_data)
         + make_arrays_tools(json_data)
-        #+ make_resolver_ambiguos_tools(json_data)
-        #+ make_resolver_area_tools(json_data)
     )
 
+    # 🔹 Mostrar lista de Tools que recibe el LLM
+    print("\n--- TOOLS DISPONIBLES ---")
+    for tool in tools:
+        print(f"→ {tool.name}: {tool.description}")
+
+    print("==========================================================\n")
+
+    # Construcción del agente
     agent = initialize_agent(
         tools=tools,
         llm=llm,

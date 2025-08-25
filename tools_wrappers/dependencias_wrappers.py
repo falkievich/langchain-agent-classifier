@@ -7,13 +7,17 @@ from langchain_tools.dependencias_vistas_tool import (
     buscar_dependencias_por_organismo_descripcion,
     buscar_dependencias_por_codigo,
     buscar_dependencias_por_dependencia_descripcion,
+    buscar_dependencias_por_clase_codigo,
+    buscar_dependencias_por_clase_descripcion,
+    buscar_dependencias_por_activo,
     buscar_dependencias_por_jerarquia,
     buscar_dependencias_por_rol,
     buscar_dependencias_por_tipos,
-    buscar_dependencias_por_clase_descripcion,
-    buscar_dependencias_por_clase_codigo,
-    buscar_dependencias_por_activo,
+    listar_fechas_depedencias,
+    buscar_dependencias_por_fecha,
 )
+
+from funcs.helpers_and_utility.fallback_resolvers_executor import ejecutar_con_resolver # Esta función se encarga de buscar entra todas las opciones si una función de dependencias_vistas_tool devuelve vacio
 
 # ————— Wrappers LangChain —————
 
@@ -26,16 +30,20 @@ def make_dependencias_tools(json_data: Dict[str, Any]):
         return listar_todas_las_dependencias(json_data)
 
     def _buscar_dependencias_por_organismo_codigo(codigo: str):
-        return buscar_dependencias_por_organismo_codigo(json_data, codigo)
+        # Tipo = "codigo" → si no encuentra, prueba resolver_por_codigo
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_organismo_codigo, codigo, tipo="codigo")
 
     def _buscar_dependencias_por_organismo_descripcion(descripcion: str):
-        return buscar_dependencias_por_organismo_descripcion(json_data, descripcion)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_descripcion
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_organismo_descripcion, descripcion, tipo="descripcion")
 
     def _buscar_dependencias_por_codigo(codigo: str):
-        return buscar_dependencias_por_codigo(json_data, codigo)
+        # Tipo = "codigo" → si no encuentra, prueba resolver_por_codigo
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_codigo, codigo, tipo="codigo")
 
     def _buscar_dependencias_por_dependencia_descripcion(descripcion: str):
-        return buscar_dependencias_por_dependencia_descripcion(json_data, descripcion)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_descripcion
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_dependencia_descripcion, descripcion, tipo="descripcion")
 
     def _buscar_dependencias_por_jerarquia(jerarquia: str):
         return buscar_dependencias_por_jerarquia(json_data, jerarquia)
@@ -47,13 +55,21 @@ def make_dependencias_tools(json_data: Dict[str, Any]):
         return buscar_dependencias_por_tipos(json_data, tipos)
 
     def _buscar_dependencias_por_clase_descripcion(descripcion: str):
-        return buscar_dependencias_por_clase_descripcion(json_data, descripcion)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_descripcion
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_clase_descripcion, descripcion, tipo="descripcion")
 
     def _buscar_dependencias_por_clase_codigo(codigo: str):
-        return buscar_dependencias_por_clase_codigo(json_data, codigo)
+        # Tipo = "codigo" → si no encuentra, prueba resolver_por_codigo
+        return ejecutar_con_resolver(json_data, buscar_dependencias_por_clase_codigo, codigo, tipo="codigo")
 
     def _buscar_dependencias_por_activo(flag: str):
         return buscar_dependencias_por_activo(json_data, flag)
+
+    def _listar_fechas_depedencias(_: str = ""):
+        return listar_fechas_depedencias(json_data)
+
+    def _buscar_dependencias_por_fecha(fecha: str):
+        return buscar_dependencias_por_fecha(json_data, fecha)
 
     return [
         LangChainTool(
@@ -111,4 +127,15 @@ def make_dependencias_tools(json_data: Dict[str, Any]):
             func=_buscar_dependencias_por_activo,
             description="Filtra dependencias según si están activas o no (valor booleano)."
         ),
+        LangChainTool(
+            name="listar_fechas_depedencias",
+            func=_listar_fechas_depedencias,
+            description="Trae todas las fechas de dependecias que hay"
+        ),
+        LangChainTool(
+            name="buscar_dependencias_por_fecha",
+            func=_buscar_dependencias_por_fecha,
+            description="Busca dependencias a partir de UNA fecha, devolviendo desde cuándo o hasta cuándo el expediente estuvo en la dependencia. El parámetro de fecha debe estar en formato ISO corto: AAAA-MM-DD."
+        ),
+
     ]

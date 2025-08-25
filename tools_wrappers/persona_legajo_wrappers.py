@@ -10,7 +10,14 @@ from langchain_tools.persona_legajo_tool import (
     buscar_persona_por_nombre,
     buscar_persona_por_tipo_documento,
     buscar_persona_por_estado_detencion,
+    buscar_persona_por_fecha_nacimiento,
+    listar_todas_las_fecha_persona_participacion,
+    listar_todas_las_fechas_persona_vinculos,
+    buscar_persona_por_fecha_participacion,
+    buscar_persona_por_fecha_vinculo,
 )
+
+from funcs.helpers_and_utility.fallback_resolvers_executor import ejecutar_con_resolver # Esta función se encarga de buscar entra todas las opciones si una función de persona_legajo_tool devuelve vacio
 
 # ————— Wrappers LangChain —————
 
@@ -29,19 +36,37 @@ def make_persona_legajo_tools(json_data: Dict[str, Any]):
         return buscar_persona_por_rol(json_data, rol)
 
     def _buscar_persona_por_descripcion_vinculo(descripcion_vinculo: str):
-        return buscar_persona_por_descripcion_vinculo(json_data, descripcion_vinculo)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_persona
+        return ejecutar_con_resolver(json_data, buscar_persona_por_descripcion_vinculo, descripcion_vinculo, tipo="descripcion")
 
     def _buscar_persona_por_codigo_vinculo(codigo_vinculo: str):
-        return buscar_persona_por_codigo_vinculo(json_data, codigo_vinculo)
+        # Tipo = "codigo" → si no encuentra, prueba resolver_por_persona
+        return ejecutar_con_resolver(json_data, buscar_persona_por_codigo_vinculo, codigo_vinculo, tipo="codigo")
 
     def _buscar_persona_por_nombre(nombre: str):
-        return buscar_persona_por_nombre(json_data, nombre)
+        # Tipo = "nombre" → si no encuentra, prueba resolver_por_persona
+        return ejecutar_con_resolver(json_data, buscar_persona_por_nombre, nombre, tipo="nombre")
 
     def _buscar_persona_por_tipo_documento(tipo_documento: str):
         return buscar_persona_por_tipo_documento(json_data, tipo_documento)
 
     def _buscar_persona_por_estado_detencion(flag: str):
         return buscar_persona_por_estado_detencion(json_data, flag)
+    
+    def _buscar_persona_por_fecha_nacimiento(fecha_nacimiento: str):
+        return buscar_persona_por_fecha_nacimiento(json_data, fecha_nacimiento)
+    
+    def _listar_todas_las_fecha_persona_participacion(_: str = ""):
+        return listar_todas_las_fecha_persona_participacion(json_data)
+    
+    def _listar_todas_las_fechas_persona_vinculos(_: str = ""):
+        return listar_todas_las_fechas_persona_vinculos(json_data)
+
+    def _buscar_persona_por_fecha_participacion(fecha: str):
+        return buscar_persona_por_fecha_participacion(json_data, fecha)
+
+    def _buscar_persona_por_fecha_vinculo(fecha: str):
+        return buscar_persona_por_fecha_vinculo(json_data, fecha)
 
     return [
         LangChainTool(
@@ -84,4 +109,30 @@ def make_persona_legajo_tools(json_data: Dict[str, Any]):
             func=_buscar_persona_por_estado_detencion,
             description="Devuelve todas las personas detenidas o no detenidas (true/false, sí/no, 1/0)."
         ),
+        LangChainTool(
+            name="buscar_persona_por_fecha_nacimiento",
+            func=_buscar_persona_por_fecha_nacimiento,
+            description="Devuelve la persona o personas que coincidan con la fecha de nacimiento exacta indicada. El parámetro en forma de fecha debe tener este formato: formato ISO corto: AAAA-MM-DD"
+        ),
+        LangChainTool(
+            name="listar_todas_las_fecha_persona_participacion",
+            func=_listar_todas_las_fecha_persona_participacion,
+            description="Trae todas las fechas de participación/involucración, de todas las personas involucradas en el caso judicial."
+        ),
+        LangChainTool(
+            name="listar_todas_las_fechas_persona_vinculos",
+            func=_listar_todas_las_fechas_persona_vinculos,
+            description="Trae todas las fechas de vinculo de todas las personas vinculadas con el expediente e involucradas en el caso judicial."
+        ),
+        LangChainTool(
+            name="buscar_persona_por_fecha_participacion",
+            func=_buscar_persona_por_fecha_participacion,
+            description="Busca personas cuya fecha de participación/involucración en el caso judicial coincida con la indicada. El parámetro de fecha debe estar en formato ISO corto: AAAA-MM-DD."
+        ),
+        LangChainTool(
+            name="buscar_persona_por_fecha_vinculo",
+            func=_buscar_persona_por_fecha_vinculo,
+            description="Busca personas en el legajo cuyo vínculo con el expediente haya iniciado o finalizado en la fecha indicada. El parámetro de fecha debe estar en formato ISO corto: AAAA-MM-DD."
+        ),
+
     ]

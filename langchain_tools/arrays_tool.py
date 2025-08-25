@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from funcs.langchain.langchain_utility import buscar_entradas_en_lista
+from funcs.helpers_and_utility.langchain_utility import buscar_entradas_en_lista
 
 IGNORE_FUNCIONARIOS = ["id"]
 IGNORE_CAUSA = ["causa_id"]

@@ -1,4 +1,4 @@
-from funcs.langchain.langchain_utility import buscar_entradas_en_lista, _to_bool_flag # Importamos las utilidades
+from funcs.helpers_and_utility.langchain_utility import buscar_entradas_en_lista, _to_bool_flag, extraer_campos_en_lista # Importamos las utilidades
 from typing import Any, Dict
 
 # ---------- Tools públicas (todas usan el wrapper, sin repetir código) ----------
@@ -93,6 +93,35 @@ def buscar_dependencias_por_activo(json_data: Dict[str, Any], activo_flag: Any) 
     matches = [d for d in deps if bool(d.get("activo", False)) == flag]
     return {"dependencias_por_activo": matches}
 
+#-------------------------------------------------------------------------  .
+def listar_fechas_depedencias(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Devuelve (solo) fecha_desde, fecha_hasta, organismo_descripcion y dependencia_descripcion
+    para cada item de dependencias_vistas.
+    """
+    filas = extraer_campos_en_lista(
+        json_data,
+        "dependencias_vistas",
+        ["fecha_desde", "fecha_hasta", "organismo_descripcion", "dependencia_descripcion"]
+    )
+    return {"fechas_y_descripciones_dependencias": filas}
+
+#-------------------------------------------------------------------------  Devuelve dependencias por fecha de inicio o fin
+def buscar_dependencias_por_fecha(json_data: Dict[str, Any], fecha: str) -> Dict[str, Any]:
+    """
+    Busca dependencias en función de la fecha indicada:
+    - fecha_desde: Fecha desde la cual el expediente estuvo en la dependencia.
+    - fecha_hasta: Fecha hasta la cual el expediente estuvo en la dependencia.
+    """
+    matches = buscar_entradas_en_lista(
+        json_data,
+        list_key="dependencias_vistas",
+        fields=["fecha_desde", "fecha_hasta"],
+        needle=fecha,
+        exact=False
+    )
+    return {"dependencias_por_fecha": matches}
+
 # ---------- Registro para el agente ----------
 ALL_DEPENDENCIAS_FUNCS = [
     listar_todas_las_dependencias,
@@ -106,4 +135,6 @@ ALL_DEPENDENCIAS_FUNCS = [
     buscar_dependencias_por_jerarquia,
     buscar_dependencias_por_rol,
     buscar_dependencias_por_tipos,
+    listar_fechas_depedencias,
+    buscar_dependencias_por_fecha,
 ]

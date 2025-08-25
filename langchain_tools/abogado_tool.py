@@ -1,4 +1,4 @@
-from funcs.langchain.langchain_utility import normalize, normalize_and_clean, buscar_entradas_en_lista # Importamos las utilidades
+from funcs.helpers_and_utility.langchain_utility import  buscar_entradas_en_lista, extraer_campos_en_lista # Importamos las utilidades
 from typing import Any, Dict, List
 
 # ————— Herramientas (Tools) para extracción en el JSON —————
@@ -116,7 +116,44 @@ def todos_los_abogados(json_data: Dict[str, Any]) -> Dict[str, Any]:
         ]
         listado.append(detalle)
 
-    return {"abogados_sin_ids": listado}
+    return {"abogados": listado}
+
+#------------------------------------------------------------------------- Traer todas las fechas de representación
+def lista_todas_las_fechas_representados(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Devuelve todas las fechas (fecha_desde, fecha_hasta) de todos los representados
+    dentro de abogados_legajo.
+    """
+    filas = extraer_campos_en_lista(
+        json_data,
+        "abogados_legajo.representados",
+        [
+            "fecha_desde",
+            "fecha_hasta",
+            ("nombre_completo", "representado_nombre_completo"),
+            ("^.nombre_completo", "abogado_nombre_completo"),
+        ],
+    )
+    return {"todas_las_fechas_representados": filas}
+
+#-------------------------------------------------------------------------  Devuelve representados por fecha de inicio o fin de la representación
+def buscar_representados_por_fecha_representacion(json_data: Dict[str, Any], fecha: str) -> Dict[str, Any]:
+    """
+    Busca representados dentro de abogados_legajo en función de la fecha indicada:
+    - representados.fecha_desde: Fecha de inicio de la representación.
+    - representados.fecha_hasta: Fecha de fin de la representación.
+    """
+    matches = buscar_entradas_en_lista(
+        json_data,
+        list_key="abogados_legajo",
+        fields=["representados.fecha_desde", "representados.fecha_hasta"],
+        needle=fecha,
+        exact=False
+    )
+    if matches:
+        return {"representados_por_fecha_representacion": matches}
+    else:
+        return lista_todas_las_fechas_representados(json_data)
 
 #------------------------------------------------------------------------- Lista con todas las funciones de relacioanda a los Abogados
 ALL_ABOGADO_FUNCS = [
@@ -125,4 +162,6 @@ ALL_ABOGADO_FUNCS = [
     buscar_abogados_por_cliente,
     buscar_abogado_por_matricula,
     todos_los_abogados,
+    lista_todas_las_fechas_representados,
+    buscar_representados_por_fecha_representacion,
 ]

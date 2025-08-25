@@ -1,7 +1,7 @@
 import unicodedata
 import re
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union, Tuple
 
 # —————————— Helpers de Normalización ——————————
 
@@ -85,6 +85,8 @@ def es_match_aproximado(needle: str, value: str) -> bool:
 
 
 
+
+
 # —————————— Helpers de Búsqueda en el Json ——————————
 
 #--------------------------------  Buscar clave:valor mediante coincidencias aproximadas
@@ -142,7 +144,7 @@ def buscar_entradas_en_lista(
         _ignore = list(ignore_keys)
 
     # ----- Paso 1: búsqueda normal -----
-    needle = normalize_and_clean(str(needle)) # Modificar, ya se está normalizando en langchain_agent.
+    needle = normalize_and_clean(str(needle)) # Se normaliza el valor a buscar
     for entry in lista:
         for field in fields:
             # si el campo es anidado, recorremos la ruta
@@ -152,7 +154,7 @@ def buscar_entradas_en_lista(
                     val = ""
                     break
                 val = val.get(part, "")
-            v = normalize_and_clean(str(val)) # v son los valores provenientes de las clave:valor encontradas en la lista
+            v = normalize_and_clean(str(val)) # v son los valores provenientes de las clave:valor encontradas en la lista. Se los normailiza
 
             if (exact and v == needle) or (not exact and needle in v):
                 resultado = {k: e for k, e in entry.items() if k not in _ignore} if _ignore else dict(entry)
@@ -170,3 +172,51 @@ def buscar_entradas_en_lista(
         needle=needle,
         ignore_keys=ignore_keys,
     )
+
+#-------------------------------- Busca en una lista del JSON las entradas cuyos campos coinciden (exacta o parcialmente) con un valor dado
+FieldSpec = Union[str, Tuple[str, str]]  # "ruta" | ("ruta", "alias")
+
+def extraer_campos_en_lista(
+    json_data: Dict[str, Any],
+    list_key: str,
+    fields: List[FieldSpec],
+) -> List[Dict[str, Any]]:
+    """
+    Recorre la ruta 'list_key' (p.ej. 'abogados_legajo.representados') y extrae
+    los 'fields' de cada elemento final. Soporta alias ("ruta","alias") y
+    acceso al padre con '^.' (p.ej. '^.nombre_completo').
+    """
+    parts = list_key.split(".")
+    nodes: List[Tuple[Any, Any]] = [(json_data, None)]  # (item, parent)
+
+    for part in parts:
+        next_nodes: List[Tuple[Any, Any]] = []
+        for item, parent in nodes:
+            cur = item.get(part, []) if isinstance(item, dict) else []
+            if isinstance(cur, list):
+                for child in cur:
+                    next_nodes.append((child, item))
+            elif isinstance(cur, dict):
+                next_nodes.append((cur, item))
+            # si no hay nada válido, no agregamos
+        nodes = next_nodes
+
+    if not nodes:
+        return []
+
+    out: List[Dict[str, Any]] = []
+    for item, parent in nodes:
+        row: Dict[str, Any] = {}
+        for fs in fields:
+            if isinstance(fs, tuple):
+                path, alias = fs
+            else:
+                path, alias = fs, fs
+            if path.startswith("^."):
+                value = _get_by_path(parent or {}, path[2:])
+            else:
+                value = _get_by_path(item or {}, path)
+            row[alias] = value
+        out.append(row)
+
+    return out

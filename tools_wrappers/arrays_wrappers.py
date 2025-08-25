@@ -10,6 +10,8 @@ from langchain_tools.arrays_tool import (
     buscar_clasificacion_legajo_por_descripcion,
 )
 
+from funcs.helpers_and_utility.fallback_resolvers_executor import ejecutar_con_resolver # Esta función se encarga de buscar entra todas las opciones si una función de arrays_tool devuelve vacio
+
 # ————— Wrappers LangChain —————
 
 def make_arrays_tools(json_data: Dict[str, Any]):
@@ -22,19 +24,22 @@ def make_arrays_tools(json_data: Dict[str, Any]):
         return listar_todos_los_funcionarios(json_data)
 
     def _buscar_funcionario_por_nombre(nombre: str):
-        return buscar_funcionario_por_nombre(json_data, nombre)
+        # Tipo = "nombre" → si no encuentra, prueba resolver_por_nombre
+        return ejecutar_con_resolver(json_data, buscar_funcionario_por_nombre, nombre, tipo="nombre")
 
     def _listar_todas_las_causas(_: str = ""):
         return listar_todas_las_causas(json_data)
 
     def _buscar_causa_por_descripcion(descripcion: str):
-        return buscar_causa_por_descripcion(json_data, descripcion)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_descripcion
+        return ejecutar_con_resolver(json_data, buscar_causa_por_descripcion, descripcion, tipo="descripcion")
 
     def _listar_todas_las_clasificaciones_legajo(_: str = ""):
         return listar_todas_las_clasificaciones_legajo(json_data)
 
     def _buscar_clasificacion_legajo_por_descripcion(descripcion: str):
-        return buscar_clasificacion_legajo_por_descripcion(json_data, descripcion)
+        # Tipo = "descripcion" → si no encuentra, prueba resolver_por_descripcion
+        return ejecutar_con_resolver(json_data, buscar_clasificacion_legajo_por_descripcion, descripcion, tipo="descripcion")
 
     return [
         LangChainTool(

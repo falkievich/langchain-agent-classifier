@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 import json
 
 # Importar la función orquestadora del agente
@@ -29,9 +29,14 @@ async def process_json(
 
     # Ejecutar el agente, que ya incluye la selección de tools y el LLM
     try:
-        result = run_agent_with_tools(json_data, user_prompt)
+        res = run_agent_with_tools(json_data, user_prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al ejecutar el agente: {e}")
 
-    # Devolver el resultado directamente tal cual lo entregue el agente
-    return JSONResponse(content=result)
+    # El agente suele devolver dict con "output"; si no, casteamos a str
+    text = res.get("output") if isinstance(res, dict) else str(res)
+    text = (text or "").replace("\r\n", "\n").strip()
+    if not text.endswith("\n"):
+        text += "\n"
+
+    return PlainTextResponse(text)

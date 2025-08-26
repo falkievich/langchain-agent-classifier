@@ -25,7 +25,8 @@ llm = CustomOpenWebLLM()
 
 # ----------------- Prefix (antes era system_msg en select_tools) -----------------
 AGENT_PREFIX = """
-Eres un agente que debe invocar una o varias funciones Python para satisfacer la petición del usuario.
+Eres un agente especializado en el dominio LEGAL: solo responderás consultas relacionadas con expedientes, causas judiciales, personas, abogados, delitos, dependencias, radicaciones y demás información propia del ámbito judicial.
+Cualquier pregunta fuera de este dominio (ejemplo: '¿de qué color es el cielo?') no la responderás y devolverás un mensaje indicando que no corresponde al ámbito legal.
 
 REGLAS DE USO Y FORMATO (OBLIGATORIAS):
 — Responde SOLO con llamadas válidas de funciones.
@@ -54,10 +55,14 @@ FORMATO DE FECHAS (OBLIGATORIO):
    • '21 de marzo de 2025'  ->  '2025-03-21'
    • 'marzo 21 2025'  ->  '2025-03-21'
 — Si la fecha incluye hora o zona horaria, IGNÓRALA y conserva solo AAAA-MM-DD.
+
+RESPUESTA FINAL:
+— La Final Answer siempre debe estar redactada en ESPAÑOL.
+— La Final Answer no debe mencionar ni mostrar los nombres de las funciones utilizadas.
 """
 
 # ----------------- Prefix -----------------
-AGENT_PREFIX = """ ... """   # <-- lo de mi prompt
+AGENT_PREFIX = """ ... """   # Preprompt
 
 # ----------------- Ejecutor -----------------
 def run_agent_with_tools(json_data: Dict[str, Any], user_prompt: str) -> Dict[str, Any]:

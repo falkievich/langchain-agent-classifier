@@ -102,7 +102,7 @@ def listar_fechas_depedencias(json_data: Dict[str, Any]) -> Dict[str, Any]:
     filas = extraer_campos_en_lista(
         json_data,
         "dependencias_vistas",
-        ["fecha_desde", "fecha_hasta", "organismo_descripcion", "dependencia_descripcion"]
+        ["fecha_desde", "fecha_hasta", "organismo_descripcion", "dependencia_descripcion", "clase_descripcion"]
     )
     return {"fechas_y_descripciones_dependencias": filas}
 

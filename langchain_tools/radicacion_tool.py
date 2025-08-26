@@ -26,7 +26,7 @@ def listar_todas_las_fechas_radicaciones(json_data: Dict[str, Any]) -> Dict[str,
     filas = extraer_campos_en_lista(
         json_data,
         "radicaciones",
-        ["organismo_actual_descripcion", "fecha_desde", "fecha_hasta"]
+        ["organismo_actual_descripcion", "motivo_actual_descripcion", "fecha_desde", "fecha_hasta"]
     )
     return {"fechas_radicaciones": filas}
 

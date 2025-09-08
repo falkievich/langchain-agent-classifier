@@ -163,6 +163,24 @@ def buscar_persona_por_fecha_vinculo(json_data: Dict[str, Any], fecha: str) -> D
     )
     return {"personas_por_fecha_vinculo": matches}
 
+# Lista todos los campos de personas_lagajos
+FIELDS_PERSONA_LEGAJO = [
+    "nombre", "apellido", "nombre_completo",
+    "tipo_documento", "numero_documento", "cuil",
+    "fecha_nacimiento", "genero", "rol",
+    "es_detenido", "fecha_desde", "fecha_hasta",
+    "vinculos.codigo_vinculo", "vinculos.descripcion_vinculo",
+    "vinculos.fecha_desde", "vinculos.fecha_hasta",
+]
+
+def todas_las_personas_en_legajo(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    filas = extraer_campos_en_lista(
+        json_data=json_data,
+        list_key="personas_legajo",
+        fields=FIELDS_PERSONA_LEGAJO,
+    )
+    return {"personas_legajo": filas}
+
 # ————— Listado Agregado de Funciones (personas_legajo) —————
 ALL_PERSONAS_FUNCS = [
     buscar_persona_por_numero_documento_dni,
@@ -178,4 +196,5 @@ ALL_PERSONAS_FUNCS = [
     listar_todas_las_fechas_persona_vinculos,
     buscar_persona_por_fecha_participacion,
     buscar_persona_por_fecha_vinculo,
+    todas_las_personas_en_legajo,
 ]

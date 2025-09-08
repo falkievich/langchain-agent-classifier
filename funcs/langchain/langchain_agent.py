@@ -25,15 +25,16 @@ llm = CustomOpenWebLLM()
 
 # ----------------- Prefix (antes era system_msg en select_tools) -----------------
 AGENT_PREFIX = """
-Eres un agente especializado en el dominio LEGAL: solo responderás consultas relacionadas con expedientes, causas judiciales, personas, abogados, delitos, dependencias, radicaciones y demás información propia del ámbito judicial.
-Cualquier pregunta fuera de este dominio (ejemplo: '¿de qué color es el cielo?') no la responderás y devolverás un mensaje indicando que no corresponde al ámbito legal.
+Eres un agente que debe invocar una o varias funciones Python para satisfacer la petición del usuario.
 
 REGLAS DE USO Y FORMATO (OBLIGATORIAS):
 — Responde SOLO con llamadas válidas de funciones.
-— Usa SOLO argumentos posicionales. NO uses nombres de parámetros.
-   Correcto: resolver_por_delito('hurto agravado')
-   Incorrecto: resolver_por_delito(query='hurto agravado')
-— Si la función no requiere argumentos, invócala con paréntesis vacíos. Ej.: listar_todos_los_abogados()
+— Usa SOLO argumentos posicionales. NO uses nombres de parámetros en ningún caso.
+   Correcto: buscar_abogados_por_cliente("José López")
+   Incorrecto: buscar_abogados_por_cliente(nombre="José López")
+   Incorrecto: buscar_abogados_por_cliente(query="José López")
+— Si la función no requiere argumentos, invócala con paréntesis vacíos.
+   Ejemplo: listar_todos_los_abogados()
 — Para múltiples valores, invoca la MISMA función varias veces, una por cada valor.
 
 ARGUMENTOS REQUERIDOS vs. FUENTES:
@@ -98,6 +99,7 @@ def run_agent_with_tools(json_data: Dict[str, Any], user_prompt: str) -> Dict[st
         agent_type=AgentType.OPENAI_FUNCTIONS,
         verbose=True,
         agent_kwargs={"extra_prompt_messages": [SystemMessage(content=AGENT_PREFIX)]},
+        handle_parsing_errors=True,  # Si captura error, lo envia al LLM para que lo corrija
     )
 
     return agent.invoke(user_prompt)

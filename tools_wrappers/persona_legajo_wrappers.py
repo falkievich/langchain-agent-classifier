@@ -15,6 +15,7 @@ from langchain_tools.persona_legajo_tool import (
     listar_todas_las_fechas_persona_vinculos,
     buscar_persona_por_fecha_participacion,
     buscar_persona_por_fecha_vinculo,
+    todas_las_personas_en_legajo,
 )
 
 from funcs.helpers_and_utility.fallback_resolvers_executor import ejecutar_con_resolver # Esta función se encarga de buscar entra todas las opciones si una función de persona_legajo_tool devuelve vacio
@@ -67,6 +68,9 @@ def make_persona_legajo_tools(json_data: Dict[str, Any]):
 
     def _buscar_persona_por_fecha_vinculo(fecha: str):
         return buscar_persona_por_fecha_vinculo(json_data, fecha)
+    
+    def _todas_las_personas_en_legajo(_: str = ""):
+        return todas_las_personas_en_legajo(json_data)
 
     return [
         LangChainTool(
@@ -133,6 +137,11 @@ def make_persona_legajo_tools(json_data: Dict[str, Any]):
             name="buscar_persona_por_fecha_vinculo",
             func=_buscar_persona_por_fecha_vinculo,
             description="Busca personas en el legajo cuyo vínculo con el expediente haya iniciado o finalizado en la fecha indicada. El parámetro de fecha debe estar en formato ISO corto: AAAA-MM-DD."
+        ),
+        LangChainTool(
+            name="todas_las_personas_en_legajo",
+            func=_todas_las_personas_en_legajo,
+            description="Trae la información de TODAS las personas involucradas en este caso, que se encuentran en el expediente/legajo."
         ),
 
     ]

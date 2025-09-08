@@ -3,3 +3,4 @@ fastapi
 langchain
 python-dotenv
 python-multipart
+langsmith

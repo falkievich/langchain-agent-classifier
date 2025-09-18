@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
 import json
 
-# Importar la función orquestadora del agente
-from funcs.langchain.langchain_agent import run_agent_with_tools
-
+from services.agent_service import generate_agent_response # Importar la función orquestadora del agente
 
 #---------------------------------------------------------- Router
 router = APIRouter()
@@ -18,25 +16,23 @@ async def process_json(
     """
     Endpoint que recibe un JSON y un prompt, y delega toda la lógica al agente.
     """
-    # Leer y parsear JSON
+    # 1) Leer JSON
     try:
         raw = await json_file.read()
         json_data = json.loads(raw)
         if not json_data:
-            raise HTTPException(status_code=400, detail="El JSON está vacío o mal formado.")
+            raise ValueError("El JSON está vacío o mal formado.")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al leer el JSON: {e}")
 
-    # Ejecutar el agente, que ya incluye la selección de tools y el LLM
+    # 2) Delegar al servicio
     try:
-        res = run_agent_with_tools(json_data, user_prompt)
+        text = await generate_agent_response(user_prompt, json_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al ejecutar el agente: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en pipeline: {e}")
 
-    # El agente suele devolver dict con "output"; si no, casteamos a str
-    text = res.get("output") if isinstance(res, dict) else str(res)
+    # 3) Normalizar y responder
     text = (text or "").replace("\r\n", "\n").strip()
     if not text.endswith("\n"):
         text += "\n"
-
     return PlainTextResponse(text)

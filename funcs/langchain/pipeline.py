@@ -1,9 +1,16 @@
 from langchain_core.runnables import RunnableLambda
 
-from classes.custom_llm_classes import CustomOpenWebLLM
+# -------- Importaciones --------
+from classes.custom_llm_classes import CustomOpenWebLLM # wrapper del LLM para invocar el modelo.
 from funcs.langchain.planning import run_planner, build_registry # Importamos el Plan y el Registro
-from funcs.langchain.execution import execute_plan_parallel, run_finalizer # Importamos la ejecución del Plan y el Finalizador
-from funcs.langchain.core import MAX_CALLS
+from funcs.langchain.execution import execute_plan_parallel, run_finalizer # Importamos la Ejecutor del Plan y el Finalizador
+from funcs.langchain.core import MAX_CALLS # Límite de cantidad de llamadas permitidas en el plan.
+
+# -------- Pipeline --------
+# 1) prep_step: arma el contexto y el registry.
+# 2) plan_step: obtiene el Plan (JSON) del Planner.
+# 3) exec_step: ejecuta el Plan en paralelo y trae el bundle.
+# 4) final_step: invoca el Finalizer y devuelve texto final.
 
 # 1) Preparar contexto
 prep_step = RunnableLambda(lambda x: {

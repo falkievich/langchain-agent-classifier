@@ -1,12 +1,12 @@
 from string import Template
 
-# -------- config.py --------
+# -------- Config --------
 MAX_CONCURRENCY = 8
 CALL_TIMEOUT_SEC = 15
 MAX_CALLS = 8
 BUNDLE_MAX_CHARS = 20000
 
-# -------- prompts.py --------
+# -------- Prompts --------
 
 PLANNER_SYSTEM_TPL = Template(
     "Eres un planificador estricto de herramientas. "

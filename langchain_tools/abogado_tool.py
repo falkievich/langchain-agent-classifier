@@ -2,6 +2,25 @@ from funcs.helpers_and_utility.langchain_utility import  buscar_entradas_en_list
 from typing import Any, Dict, List
 
 # ————— Herramientas (Tools) para extracción en el JSON —————
+#------------------------------------------------------------------------- (saqué ids) Lista todos los abogados
+def todos_los_abogados(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Lista todos los abogados con su nombre completo y matrícula."""
+    abogados = json_data.get("abogados_legajo", [])
+    listado: List[Dict[str, Any]] = []
+
+    for a in abogados:
+        # Excluir IDs de nivel superior
+        detalle = {k: v for k, v in a.items() if k not in ("abogado_id", "abogado_persona_id")}
+        # Limpiar los representados: excluir persona_id
+        reps = detalle.get("representados", [])
+        detalle["representados"] = [
+            {k: v for k, v in rep.items() if k != "persona_id"}
+            for rep in reps
+        ]
+        listado.append(detalle)
+
+    return {"abogados": listado}
+
 #-------------------------------------------------------------------------  Busca un abogado por nombre y, si lo encuentra, trae también la persona vinculada.
 def buscar_abogado_por_nombre(json_data: Dict[str, Any], nombre_abogado: str) -> Dict[str, Any]:
     """Busca TODA la información de un abogado en base a su nombre."""
@@ -99,25 +118,6 @@ def buscar_abogado_por_matricula(json_data: Dict[str, Any], numero_matricula: st
 
     return {"abogado_por_matricula": matches}
 
-#------------------------------------------------------------------------- (saqué ids) Lista todos los abogados
-def todos_los_abogados(json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Lista todos los abogados con su nombre completo y matrícula."""
-    abogados = json_data.get("abogados_legajo", [])
-    listado: List[Dict[str, Any]] = []
-
-    for a in abogados:
-        # Excluir IDs de nivel superior
-        detalle = {k: v for k, v in a.items() if k not in ("abogado_id", "abogado_persona_id")}
-        # Limpiar los representados: excluir persona_id
-        reps = detalle.get("representados", [])
-        detalle["representados"] = [
-            {k: v for k, v in rep.items() if k != "persona_id"}
-            for rep in reps
-        ]
-        listado.append(detalle)
-
-    return {"abogados": listado}
-
 #------------------------------------------------------------------------- Traer todas las fechas de representación
 def lista_todas_las_fechas_representados(json_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -157,11 +157,11 @@ def buscar_representados_por_fecha_representacion(json_data: Dict[str, Any], fec
 
 #------------------------------------------------------------------------- Lista con todas las funciones de relacioanda a los Abogados
 ALL_ABOGADO_FUNCS = [
+    todos_los_abogados,
     buscar_abogado_por_nombre,
     buscar_clientes_de_abogado,
     buscar_abogados_por_cliente,
     buscar_abogado_por_matricula,
-    todos_los_abogados,
     lista_todas_las_fechas_representados,
     buscar_representados_por_fecha_representacion,
 ]

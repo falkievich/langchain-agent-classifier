@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Any
 
-# -------- schema/models --------
+# -------- Schema/Models --------
 # Modelos Pydantic que definen el contrato del Planner:
 # - Call: nombre de tool + args posicionales.
 # - Plan: lista de Calls que el Executor correrá en paralelo.

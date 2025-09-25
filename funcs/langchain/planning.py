@@ -23,8 +23,9 @@ from funcs.langchain.core import PLANNER_SYSTEM_TPL, PLANNER_USER_TMPL, MAX_CALL
 # Devuelve un objeto Plan listo para ser ejecutado en paralelo.
 
 def build_tools_bullets(allowed_tools) -> str:
-    """Convierte la lista de tools en bullets para el prompt del Planner."""
-    return "\n".join(f"- {t.name}: {t.description}" for t in allowed_tools)
+    """Convierte la lista de tools en bullets resumidos para el prompt del Planner."""
+    summarized = [{"name": t.name, "description": t.description} for t in allowed_tools]
+    return "\n".join(f"- {t['name']}: {t['description']}" for t in summarized)
 
 def run_planner(llm: CustomOpenWebLLM, user_prompt: str, allowed_tools, max_calls: int = MAX_CALLS) -> Plan:
     """Invoca al Planner (LLM) para obtener un plan JSON y lo valida."""

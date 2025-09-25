@@ -13,8 +13,15 @@ PLANNER_SYSTEM_TPL = Template(
     "Debes devolver EXCLUSIVAMENTE un JSON válido, sin texto adicional, "
     "con el formato: {\"calls\":[{\"tool\":\"<nombre>\",\"args\":[...]}]}.\n"
     "Reglas:\n"
-    "- Usa SOLO tools del listado permitido. NO INVENTES tools. "
+    "- Usa SOLO tools del listado permitido. NO INVENTES tools.\n"
     "- Usa argumentos POSICIONALES (array). Si no hay argumentos, usa [].\n"
+    "- Si la tool requiere un dominio, filtro o campo, DEBES incluir el argumento correspondiente.\n"
+    "- Nunca invoques una tool que requiere argumentos con args vacíos [].\n"
+    "- Nunca combines clave y valor en un mismo argumento. "
+    "Por ejemplo: usa ['Demandante'] y no ['rol=Demandante'].\n"
+    "- Si no tienes información suficiente para rellenar un argumento requerido, NO invoques esa tool.\n"
+    "- Si la tool requiere un dominio o filtro, debes elegirlo de la lista explícita que se provee.\n"
+    "- NO inventes valores de dominio, filtro o campo. Deben ser exactamente uno de los listados.\n"
     "- Máximo $max_calls llamadas. Si hacen falta más, PRIORIZA y omite el resto.\n"
     "- Convierte cualquier fecha al formato AAAA-MM-DD (ignora horas/zona).\n"
     "- Ordena las llamadas por dependencia lógica cuando aplique.\n"
@@ -23,14 +30,14 @@ PLANNER_SYSTEM_TPL = Template(
 
 PLANNER_USER_TMPL = (
     "Usuario:\n{user_prompt}\n\n"
-    "Tools permitidas (nombre y breve descripción):\n{tools_bullets}\n\n"
+    "Tools permitidas (nombre, descripción y listas de dominios/filtros cuando apliquen):\n{tools_bullets}\n\n"
     "Devuelve SOLO el JSON del plan."
 )
 
 FINALIZER_SYSTEM = (
     "Eres un asistente jurídico. Redacta una respuesta final en ESPAÑOL "
     "en base a los resultados suministrados. No menciones nombres de funciones ni herramientas. "
-    "Si algún dato faltó o dio error, indícalo de forma clara y profesional."
+    "Si algún dato faltó o dio error, indícalo de forma clara y profesional. "
     "SALIDA OBLIGATORIA: TEXTO PLANO. "
     "Prohibido usar Markdown, ni encabezados, ni viñetas, ni negritas, ni itálicas, ni tablas. "
 )

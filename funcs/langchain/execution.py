@@ -59,21 +59,12 @@ async def execute_plan_parallel(plan, registry: dict):
     return results_dict, bundle
 
 # -------- Finalizer --------
-# Construye el prompt final con el bundle y obtiene una única respuesta en texto plano.
-
+# En vez de generar respuesta natural en español, devolvemos directamente el JSON crudo del bundle.
 def run_finalizer(llm: CustomOpenWebLLM, user_prompt: str, bundle: list) -> str:
-    """Genera la respuesta final (en español, sin markdown) a partir del bundle completo."""
-    # Normalizar uniformidad de result en cada rama.
+    """Devuelve el JSON del bundle con resultados de las tools (sin post-procesar en lenguaje natural)."""
     for item in bundle:
         if "status" not in item.get("result", {}):
             item["result"] = {"status": "ok", "data": item["result"]}
 
-    # Serializar bundle con tope defensivo para no desbordar el prompt.
-    bundle_json = json.dumps(bundle, ensure_ascii=False)[:BUNDLE_MAX_CHARS]
-
-    # Un solo prompt (system+user) → “un thought final” del modelo.
-    prompt = FINALIZER_SYSTEM + "\n\n" + FINALIZER_USER_TMPL.format(
-        user_prompt=user_prompt,
-        bundle_json=bundle_json
-    )
-    return llm._call(prompt=prompt, stop=None)
+    # Devolvemos bundle completo como JSON string
+    return json.dumps(bundle, ensure_ascii=False, indent=2)

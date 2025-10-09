@@ -10,11 +10,11 @@ from global_functions.json_fallback import buscar_en_json_global
 
 # Lista de filtros válidos para buscar_radicacion
 RADICACION_FILTROS_DISPONIBLES = [
-    "organismo_codigo",
-    "organismo_descripcion",
-    "motivo_codigo",
-    "motivo_descripcion",
-    "fecha",
+    "organismo_codigo_radicacion: Filtra radicaciones por el código exacto del organismo actual (ej: 1C0113).",
+    "organismo_descripcion_radicacion: Filtra radicaciones por la descripción textual del organismo actual (ej: Juzgado de Familia Nro.02).",
+    "motivo_codigo_radicacion: Filtra radicaciones por el código del motivo actual (ej: MTR001).",
+    "motivo_descripcion_radicacion: Filtra radicaciones por la descripción del motivo actual (ej: Radicado Inicial).",
+    "fecha_radicacion: Filtra radicaciones por fecha de inicio o fin (formato AAAA-MM-DD).",
 ]
 
 
@@ -25,15 +25,15 @@ def buscar_radicacion(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dic
 
     Filtros disponibles: RADICACION_FILTROS_DISPONIBLES
     """
-    if filtro == "organismo_codigo":
+    if filtro == "organismo_codigo_radicacion":
         res = buscar_radicacion_por_organismo_codigo(json_data, valor)
-    elif filtro == "organismo_descripcion":
+    elif filtro == "organismo_descripcion_radicacion":
         res = buscar_radicacion_por_organismo_descripcion(json_data, valor)
-    elif filtro == "motivo_codigo":
+    elif filtro == "motivo_codigo_radicacion":
         res = buscar_radicacion_por_motivo_codigo(json_data, valor)
-    elif filtro == "motivo_descripcion":
+    elif filtro == "motivo_descripcion_radicacion":
         res = buscar_radicacion_por_motivo_descripcion(json_data, valor)
-    elif filtro == "fecha":
+    elif filtro == "fecha_radicacion":
         res = buscar_radicacion_por_fecha(json_data, valor)
     else:
         return {
@@ -41,7 +41,7 @@ def buscar_radicacion(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dic
                      f"Opciones válidas: {RADICACION_FILTROS_DISPONIBLES}"
         }
 
-    if not res or all(not v for v in res.values()):
-        return buscar_en_json_global(json_data, valor)
+    # if not res or all(not v for v in res.values()):
+    #     return buscar_en_json_global(json_data, valor)
 
     return res

@@ -10,13 +10,12 @@ from global_functions.json_fallback import buscar_en_json_global
 
 # Lista de filtros válidos para buscar_abogado
 ABOGADO_FILTROS_DISPONIBLES = [
-    "nombre",
-    "matricula",
-    "clientes",
-    "abogados_por_cliente",
-    "fecha_representacion",
+    "nombre_abogado: Busca un abogado por su nombre, apellido o nombre apellido",
+    "matricula_abogado: Busca un abogado por su matrícula profesional.",
+    "clientes_de_un_abogado: En base al nombre de un abogado devuelve todos sus clientes representados.",
+    "abogados_por_cliente: En base al nombre de un cliente devuelve todos los abogados que lo representan",
+    "fecha_representacion: Filtra representaciones de abogados por fecha de inicio o fin. Formato: AAAA-MM-DD.",
 ]
-
 
 def buscar_abogado(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -25,11 +24,11 @@ def buscar_abogado(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[s
 
     Filtros disponibles: ABOGADO_FILTROS_DISPONIBLES
     """
-    if filtro == "nombre":
+    if filtro == "nombre_abogado":
         res = buscar_abogado_por_nombre(json_data, valor)
-    elif filtro == "matricula":
+    elif filtro == "matricula_abogado":
         res = buscar_abogado_por_matricula(json_data, valor)
-    elif filtro == "clientes":
+    elif filtro == "clientes_de_un_abogado":
         res = buscar_clientes_de_abogado(json_data, valor)
     elif filtro == "abogados_por_cliente":
         res = buscar_abogados_por_cliente(json_data, valor)
@@ -41,7 +40,7 @@ def buscar_abogado(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[s
                      f"Opciones válidas: {ABOGADO_FILTROS_DISPONIBLES}"
         }
 
-    if not res or all(not v for v in res.values()):
-        return buscar_en_json_global(json_data, valor)
+    # if not res or all(not v for v in res.values()):
+    #     return buscar_en_json_global(json_data, valor)
 
     return res

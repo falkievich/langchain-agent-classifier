@@ -1,4 +1,4 @@
-import json
+import json, re
 from pydantic import ValidationError
 
 # -------- Importaciones --------
@@ -21,6 +21,32 @@ from funcs.langchain.core import PLANNER_SYSTEM_TPL, PLANNER_USER_TMPL, MAX_CALL
 #   * Tools válidas (presentes en allowed_tools)
 #   * Límite de llamadas (MAX_CALLS)
 # Devuelve un objeto Plan listo para ser ejecutado en paralelo.
+
+def _parse_function_calls(raw: str) -> list:
+    """
+    Convierte salida estilo funcion:
+        buscar_persona("rol", "Demandante")
+        listar_todo("expediente")
+    en lista de dicts [{tool, args}, ...].
+    """
+    calls = []
+    # separar en líneas limpias
+    for line in raw.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        match = re.match(r"(\w+)\((.*)\)", line)
+        if not match:
+            continue
+        tool = match.group(1)
+        args_str = match.group(2).strip()
+        if not args_str:
+            args = []
+        else:
+            # separar por comas, limpiar comillas
+            args = [a.strip().strip('"').strip("'") for a in args_str.split(",")]
+        calls.append({"tool": tool, "args": args})
+    return calls
 
 def build_tools_bullets(allowed_tools) -> str:
     """Convierte la lista de tools en bullets resumidos para el prompt del Planner."""
@@ -45,12 +71,12 @@ def run_planner(llm: CustomOpenWebLLM, user_prompt: str, allowed_tools, max_call
         if start != -1 and end != -1 and end > start:
             json_str = json_str[start:end+1]
 
-    # 4) Parsear + validar contra el esquema Plan
+    # 4) Parsear salida estilo funcion y validar con Pydantic Plan
     try:
-        data = json.loads(json_str)
-        plan = Plan(**data)
-    except (json.JSONDecodeError, ValidationError) as e:
-        raise RuntimeError(f"Planner devolvió JSON inválido: {e}\nRAW:\n{raw}")
+        calls_data = _parse_function_calls(raw)
+        plan = Plan(calls=calls_data)
+    except ValidationError as e:
+        raise RuntimeError(f"Planner devolvió formato inválido: {e}\nRAW:\n{raw}")
 
     # 5) Validaciones de negocio (tools permitidas + tope de llamadas)
     allowed_names = {t.name for t in allowed_tools}

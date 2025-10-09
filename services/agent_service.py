@@ -10,11 +10,23 @@ from tools_wrappers.global_search_wrappers import make_global_search_tools
 
 def build_all_tools(json_data: Dict[str, Any]) -> List[Any]:
     """Crea y devuelve la lista completa de tools a partir del json_data."""
-    return (
+    tools = (
         make_listados_tools(json_data)
         + make_domain_search_tools(json_data)
         + make_global_search_tools(json_data)
     )
+
+    # --- DEBUG: imprimir qué tools se están pasando al LLM ---
+    print("\n=== TOOLS DISPONIBLES PARA EL LLM ===")
+    for t in tools:
+        try:
+            print(f"- {t.name}: {t.description}")
+        except Exception:
+            print(f"- {t}")
+    print("======================================\n")
+
+    return tools
+
 
 def get_llm() -> CustomOpenWebLLM:
     return CustomOpenWebLLM()

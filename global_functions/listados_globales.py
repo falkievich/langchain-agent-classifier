@@ -10,17 +10,16 @@ from langchain_tools.arrays_tool import listar_todos_los_funcionarios, listar_to
 
 # Lista de dominios soportados por listar_todo
 LISTAR_DOMINIOS_DISPONIBLES = [
-    "abogados",
-    "personas",
-    "dependencias",
-    "delitos",
-    "funcionarios",
-    "causas",
-    "clasificaciones",
-    "radicaciones",
-    "expediente",
+    "abogados: Lista todos los abogados registrados en el legajo con sus datos completos y vinculaciones relevantes.",
+    "personas: Lista todas las personas involucradas en el expediente o legajo, incluyendo todas sus participaciones y vínculos.",
+    "dependencias: Lista todas las dependencias y organismos asociados al legajo, con su estructura jerárquica y roles funcionales.",
+    "delitos: Lista todos los delitos relacionados con el legajo, incluyendo su clasificación y orden de registro.",
+    "funcionarios: Lista todos los funcionarios intervinientes o asociados al legajo con la información disponible.",
+    "causas: Lista todas las causas judiciales registradas dentro del legajo con sus características principales.",
+    "clasificaciones: Lista todas las clasificaciones o categorías del legajo que definen su tipo o naturaleza.",
+    "radicaciones: Lista todas las radicaciones y movimientos del expediente entre los distintos organismos intervinientes.",
+    "expediente: Devuelve toda la información general y estructural del expediente, incluyendo su estado y contexto procesal.",
 ]
-
 
 def listar_todo(json_data: Dict[str, Any], dominio: str) -> Dict[str, Any]:
     """

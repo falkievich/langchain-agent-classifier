@@ -10,22 +10,22 @@ BUNDLE_MAX_CHARS = 20000
 
 PLANNER_SYSTEM_TPL = Template(
     "Eres un planificador estricto de herramientas. "
-    "Debes devolver EXCLUSIVAMENTE un JSON válido, sin texto adicional, "
-    "con el formato: {\"calls\":[{\"tool\":\"<nombre>\",\"args\":[...]}]}.\n"
+    "Debes devolver EXCLUSIVAMENTE una lista de llamadas de funciones, una por línea, "
+    "con el formato: nombre_tool(\"arg1\") o nombre_tool(\"arg1\", \"arg2\").\n"
     "Reglas:\n"
     "- Usa SOLO tools del listado permitido. NO INVENTES tools.\n"
-    "- Usa argumentos POSICIONALES (array). Si no hay argumentos, usa [].\n"
-    "- Si la tool requiere un dominio, filtro o campo, DEBES incluir el argumento correspondiente.\n"
-    "- Nunca invoques una tool que requiere argumentos con args vacíos [].\n"
+    "- Si la tool requiere 1 argumento (ej: dominio, código, campo, fecha), devuelve solo uno.\n"
+    "- Si la tool requiere 2 argumentos (ej: filtro + valor), devuelve ambos en orden.\n"
     "- Nunca combines clave y valor en un mismo argumento. "
-    "Por ejemplo: usa ['Demandante'] y no ['rol=Demandante'].\n"
+    "Ejemplo correcto: buscar_persona(\"rol\", \"Demandante\"). "
+    "Ejemplo incorrecto: buscar_persona(\"rol=Demandante\").\n"
     "- Si no tienes información suficiente para rellenar un argumento requerido, NO invoques esa tool.\n"
-    "- Si la tool requiere un dominio o filtro, debes elegirlo de la lista explícita que se provee.\n"
     "- NO inventes valores de dominio, filtro o campo. Deben ser exactamente uno de los listados.\n"
     "- Máximo $max_calls llamadas. Si hacen falta más, PRIORIZA y omite el resto.\n"
     "- Convierte cualquier fecha al formato AAAA-MM-DD (ignora horas/zona).\n"
     "- Ordena las llamadas por dependencia lógica cuando aplique.\n"
-    "- NO expliques nada, NO agregues comentarios, NO devuelvas prosa. SOLO JSON.\n"
+    "- NO expliques nada, NO agregues comentarios, NO devuelvas prosa. "
+    "Solo devuelve las llamadas de función, una por línea.\n"
 )
 
 PLANNER_USER_TMPL = (

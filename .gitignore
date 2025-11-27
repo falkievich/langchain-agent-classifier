@@ -8,3 +8,10 @@
 /funcs/langchain/__pycache__
 /classes/__pycache__
 /funcs/langchain/__pycache__
+/__pycache__
+/funcs/__pycache__
+/funcs/helpers_and_utility/__pycache__
+/langchain_tools/__pycache__
+/routes/__pycache__
+/schema/__pycache__
+/services/__pycache__

@@ -13,7 +13,6 @@ from langchain_tools.expediente_tool import (
     buscar_cuij,
     buscar_fechas_inicio_y_modificacion_expediente,
 )
-from global_functions.json_fallback import buscar_en_json_global
 
 # Campos válidos para obtener_dato_expediente
 EXPEDIENTE_CAMPOS_DISPONIBLES = [
@@ -30,7 +29,6 @@ EXPEDIENTE_CAMPOS_DISPONIBLES = [
     "cuij_expediente: Devuelve el CUIJ (código único de identificación judicial).",
     "fechas_expediente: Devuelve la fecha de inicio y la última modificación del expediente.",
 ]
-
 
 def obtener_dato_expediente(json_data: Dict[str, Any], campo: str) -> Dict[str, Any]:
     """
@@ -68,8 +66,5 @@ def obtener_dato_expediente(json_data: Dict[str, Any], campo: str) -> Dict[str, 
             "error": f"Campo '{campo}' no reconocido en obtener_dato_expediente. "
                      f"Opciones válidas: {EXPEDIENTE_CAMPOS_DISPONIBLES}"
         }
-
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, campo)
 
     return res

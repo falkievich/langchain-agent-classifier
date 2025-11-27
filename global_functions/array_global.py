@@ -4,13 +4,12 @@ from langchain_tools.arrays_tool import (
     buscar_causa_por_descripcion,
     buscar_clasificacion_legajo_por_descripcion,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Filtros válidos por dominio pequeño
 FUNCIONARIO_FILTROS_DISPONIBLES = ["nombre"]
 CAUSA_FILTROS_DISPONIBLES = ["descripcion"]
 CLASIFICACION_LEGAJO_FILTROS_DISPONIBLES = ["descripcion"]
-
 
 def buscar_funcionario(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -27,11 +26,7 @@ def buscar_funcionario(json_data: Dict[str, Any], filtro: str, valor: Any) -> Di
                      f"Opciones válidas: {FUNCIONARIO_FILTROS_DISPONIBLES}"
         }
 
-    if not res or all(not v for v in res.values()):
-        return buscar_en_json_global(json_data, valor)
-
     return res
-
 
 def buscar_causa(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -48,11 +43,7 @@ def buscar_causa(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str
                      f"Opciones válidas: {CAUSA_FILTROS_DISPONIBLES}"
         }
 
-    if not res or all(not v for v in res.values()):
-        return buscar_en_json_global(json_data, valor)
-
     return res
-
 
 def buscar_clasificacion_legajo(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -68,8 +59,5 @@ def buscar_clasificacion_legajo(json_data: Dict[str, Any], filtro: str, valor: A
             "error": f"Filtro '{filtro}' no reconocido en buscar_clasificacion_legajo. "
                      f"Opciones válidas: {CLASIFICACION_LEGAJO_FILTROS_DISPONIBLES}"
         }
-
-    if not res or all(not v for v in res.values()):
-        return buscar_en_json_global(json_data, valor)
 
     return res

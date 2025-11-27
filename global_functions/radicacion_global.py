@@ -6,7 +6,7 @@ from langchain_tools.radicacion_tool import (
     buscar_radicacion_por_motivo_descripcion,
     buscar_radicacion_por_fecha,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Lista de filtros válidos para buscar_radicacion
 RADICACION_FILTROS_DISPONIBLES = [
@@ -16,7 +16,6 @@ RADICACION_FILTROS_DISPONIBLES = [
     "motivo_descripcion_radicacion: Filtra radicaciones por la descripción del motivo actual (ej: Radicado Inicial).",
     "fecha_radicacion: Filtra radicaciones por fecha de inicio o fin (formato AAAA-MM-DD).",
 ]
-
 
 def buscar_radicacion(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -41,7 +40,11 @@ def buscar_radicacion(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dic
                      f"Opciones válidas: {RADICACION_FILTROS_DISPONIBLES}"
         }
 
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, valor)
+    if not res or (isinstance(res, dict) and not any(res.values())):
+        return {
+            "mensaje": "No se encontraron resultados específicos. "
+                       "Mostrando coincidencias aproximadas dentro del dominio 'radicaciones'.",
+            "fallback": buscar_en_json_por_dominio(json_data, "radicaciones", valor)
+        }
 
     return res

@@ -29,6 +29,11 @@ class CustomOpenWebLLM(LLM):
         """
         Envia el prompt al modelo Open WebUI y devuelve la respuesta como string.
         """
+        # DEBUG: imprimir qué modelo se está usando
+        print(f"\n🔍 DEBUG LLM: Usando modelo '{self.model}'")
+        print(f"🔍 DEBUG LLM: Base URL '{self.base_url}'")
+        print(f"🔍 DEBUG LLM: Prompt length: {len(prompt)} chars")
+        
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -42,11 +47,34 @@ class CustomOpenWebLLM(LLM):
             ],
         }
 
-        resp = requests.post(self.base_url, headers=headers, json=payload)
+        # DEBUG: imprimir payload (sin API key)
+        print(f"🔍 DEBUG LLM: Payload model: {payload['model']}")
+        print(f"🔍 DEBUG LLM: Messages count: {len(payload['messages'])}")
+
+        resp = requests.post(self.base_url, headers=headers, json=payload, timeout=120)  # 2 minutos
+        
+        # DEBUG: imprimir respuesta
+        print(f"🔍 DEBUG LLM: Status code: {resp.status_code}")
+        print(f"🔍 DEBUG LLM: Response length: {len(resp.text)} chars")
+        
         resp.raise_for_status()
 
         data = resp.json()
+        
+        # DEBUG: imprimir estructura de respuesta
+        print(f"🔍 DEBUG LLM: Response keys: {list(data.keys())}")
+        if "choices" in data:
+            print(f"🔍 DEBUG LLM: Choices count: {len(data['choices'])}")
+            if data["choices"]:
+                print(f"🔍 DEBUG LLM: First choice keys: {list(data['choices'][0].keys())}")
+            else:
+                print(f"⚠️ DEBUG LLM: CHOICES ESTÁ VACÍO []")
+        
         text = data["choices"][0]["message"]["content"]
+        
+        print(f"🔍 DEBUG LLM: Response text length: {len(text)} chars")
+        print(f"🔍 DEBUG LLM: Response preview: {text[:200]}...")
+        print()
 
         # Respeta stop sequences si las hay
         if stop:

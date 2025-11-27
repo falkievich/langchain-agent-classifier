@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Any
 
 # -------- Schema/Models --------
@@ -8,9 +8,13 @@ from typing import List, Any
 
 class Call(BaseModel):
     """Una invocación a tool con argumentos posicionales."""
+    model_config = ConfigDict(extra='ignore')  # Ignorar campos extras
+    
     tool: str = Field(..., description="Nombre exacto de la tool registrada")
     args: List[Any] = Field(default_factory=list, description="Argumentos posicionales")
 
 class Plan(BaseModel):
     """Plan ejecutable: secuencia de llamadas (orden preservado para el bundle)."""
+    model_config = ConfigDict(extra='ignore')  # Ignorar campos extras
+    
     calls: List[Call] = Field(default_factory=list)

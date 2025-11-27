@@ -4,7 +4,7 @@ from langchain_tools.materia_delitos_tool import (
     buscar_delitos_por_descripcion,
     buscar_delito_por_orden,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Lista de filtros válidos para buscar_delito
 DELITO_FILTROS_DISPONIBLES = [
@@ -12,7 +12,6 @@ DELITO_FILTROS_DISPONIBLES = [
     "descripcion_delito: Filtra delitos por la descripción textual del delito.",
     "orden_delito: Filtra delitos por su número de orden (valor numérico).",
 ]
-
 
 def buscar_delito(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -33,7 +32,11 @@ def buscar_delito(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[st
                      f"Opciones válidas: {DELITO_FILTROS_DISPONIBLES}"
         }
 
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, valor)
+    if not res or (isinstance(res, dict) and not any(res.values())):
+        return {
+            "mensaje": "No se encontraron resultados específicos. "
+                       "Mostrando coincidencias aproximadas dentro del dominio 'delitos'.",
+            "fallback": buscar_en_json_por_dominio(json_data, "delitos", valor)
+        }
 
     return res

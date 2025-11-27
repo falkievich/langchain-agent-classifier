@@ -3,9 +3,9 @@ from classes.custom_llm_classes import CustomOpenWebLLM
 from funcs.langchain.pipeline import run_planned_parallel # Importamos las Pipeline
 
 # Importamos las Tools
-from tools_wrappers.listados_wrappers import make_listados_tools
-from tools_wrappers.domain_search_wrappers import make_domain_search_tools
-from tools_wrappers.global_search_wrappers import make_global_search_tools
+from wrappers.listados_wrappers import make_listados_tools
+from wrappers.domain_search_wrappers import make_domain_search_tools
+from wrappers.global_search_wrappers import make_global_search_tools
 
 
 def build_all_tools(json_data: Dict[str, Any]) -> List[Any]:
@@ -36,6 +36,15 @@ async def generate_agent_response(user_prompt: str, json_data: Dict[str, Any]) -
     Orquesta el flujo Planner → Parallel → Finalizer y devuelve texto final.
     Reutilizable por cualquier endpoint que tenga (user_prompt, json_data).
     """
-    tools = build_all_tools(json_data)
-    llm = get_llm()
-    return await run_planned_parallel(llm, user_prompt, tools)
+    try:
+        tools = build_all_tools(json_data)
+        llm = get_llm()
+        return await run_planned_parallel(llm, user_prompt, tools)
+    except Exception as e:
+        print(f"\n❌ ERROR EN GENERATE_AGENT_RESPONSE ❌")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {e}")
+        import traceback
+        traceback.print_exc()
+        print()
+        raise

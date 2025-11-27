@@ -6,7 +6,7 @@ from langchain_tools.abogado_tool import (
     buscar_abogado_por_matricula,
     buscar_representados_por_fecha_representacion,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Lista de filtros válidos para buscar_abogado
 ABOGADO_FILTROS_DISPONIBLES = [
@@ -40,7 +40,11 @@ def buscar_abogado(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[s
                      f"Opciones válidas: {ABOGADO_FILTROS_DISPONIBLES}"
         }
 
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, valor)
+    if not res or (isinstance(res, dict) and not any(res.values())):
+        return {
+            "mensaje": "No se encontraron resultados específicos. "
+                       "Mostrando coincidencias aproximadas dentro del dominio 'abogados'.",
+            "fallback": buscar_en_json_por_dominio(json_data, "abogados", valor)
+        }
 
     return res

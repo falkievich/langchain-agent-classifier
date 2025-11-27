@@ -11,7 +11,13 @@ BUNDLE_MAX_CHARS = 20000
 PLANNER_SYSTEM_TPL = Template(
     "Eres un planificador estricto de herramientas. "
     "Debes devolver EXCLUSIVAMENTE una lista de llamadas de funciones, una por línea, "
-    "con el formato: nombre_tool(\"arg1\") o nombre_tool(\"arg1\", \"arg2\").\n"
+    "con el formato: nombre_tool(\"arg1\") o nombre_tool(\"arg1\", \"arg2\").\n\n"
+    "FORMATO DE SALIDA OBLIGATORIO:\n"
+    "nombre_tool(\"arg1\")\n"
+    "nombre_tool(\"arg1\", \"arg2\")\n\n"
+    "NO uses JSON. NO uses formato {\"steps\":[...]}, {\"calls\":[...]}, {\"action\":...} ni similares.\n"
+    "NO agregues explicaciones, razonamientos ni texto adicional.\n"
+    "SOLO devuelve las llamadas directamente, una por línea.\n\n"
     "Reglas:\n"
     "- Usa SOLO tools del listado permitido. NO INVENTES tools.\n"
     "- Si la tool requiere 1 argumento (ej: dominio, código, campo, fecha), devuelve solo uno.\n"
@@ -24,14 +30,17 @@ PLANNER_SYSTEM_TPL = Template(
     "- Máximo $max_calls llamadas. Si hacen falta más, PRIORIZA y omite el resto.\n"
     "- Convierte cualquier fecha al formato AAAA-MM-DD (ignora horas/zona).\n"
     "- Ordena las llamadas por dependencia lógica cuando aplique.\n"
-    "- NO expliques nada, NO agregues comentarios, NO devuelvas prosa. "
-    "Solo devuelve las llamadas de función, una por línea.\n"
 )
 
 PLANNER_USER_TMPL = (
     "Usuario:\n{user_prompt}\n\n"
     "Tools permitidas (nombre, descripción y listas de dominios/filtros cuando apliquen):\n{tools_bullets}\n\n"
-    "Devuelve SOLO el JSON del plan."
+    "Devuelve SOLO llamadas de función, una por línea.\n"
+    "Formato esperado:\n"
+    "nombre_tool(\"arg1\")\n"
+    "nombre_tool(\"arg1\", \"arg2\")\n\n"
+    "NO devuelvas JSON. NO uses formato con llaves, corchetes o diccionarios.\n"
+    "SOLO devuelve las llamadas directamente, una por línea."
 )
 
 FINALIZER_SYSTEM = (
@@ -42,7 +51,7 @@ FINALIZER_SYSTEM = (
     "Prohibido usar Markdown, ni encabezados, ni viñetas, ni negritas, ni itálicas, ni tablas. "
 )
 
-FINALIZER_USER_TMPL = (
+FINALIZER_USER_TMPL = (  # Actualmente no se usa. Lo deberia de usar def run_finalize
     "Consulta del usuario:\n{user_prompt}\n\n"
     "Resultados disponibles (JSON):\n{bundle_json}\n\n"
     "Instrucciones:\n"

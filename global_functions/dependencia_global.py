@@ -12,7 +12,7 @@ from langchain_tools.dependencias_vistas_tool import (
     buscar_dependencias_por_activo,
     buscar_dependencias_por_fecha,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Lista de filtros válidos para buscar_dependencia
 DEPENDENCIA_FILTROS_DISPONIBLES = [
@@ -28,7 +28,6 @@ DEPENDENCIA_FILTROS_DISPONIBLES = [
     "activo_dependencia: Filtra dependencias activas o inactivas (true/false).",
     "fecha_dependencia: Filtra dependencias por fechas de inicio o fin (formato AAAA-MM-DD).",
 ]
-
 
 def buscar_dependencia(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -65,7 +64,11 @@ def buscar_dependencia(json_data: Dict[str, Any], filtro: str, valor: Any) -> Di
                      f"Opciones válidas: {DEPENDENCIA_FILTROS_DISPONIBLES}"
         }
 
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, valor)
+    if not res or (isinstance(res, dict) and not any(res.values())):
+        return {
+            "mensaje": "No se encontraron resultados específicos. "
+                       "Mostrando coincidencias aproximadas dentro del dominio 'dependencias'.",
+            "fallback": buscar_en_json_por_dominio(json_data, "dependencias", valor)
+        }
 
     return res

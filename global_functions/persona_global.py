@@ -12,7 +12,7 @@ from langchain_tools.persona_legajo_tool import (
     buscar_persona_por_fecha_participacion,
     buscar_persona_por_fecha_vinculo,
 )
-from global_functions.json_fallback import buscar_en_json_global
+from global_functions.json_fallback import buscar_en_json_por_dominio
 
 # Lista de filtros válidos para buscar_persona
 PERSONA_FILTROS_DISPONIBLES = [
@@ -28,7 +28,6 @@ PERSONA_FILTROS_DISPONIBLES = [
     "fecha_participacion_persona: Filtra personas por su fecha de participación en el caso (AAAA-MM-DD).",
     "fecha_vinculo_persona: Filtra personas por la fecha de inicio o fin de su vínculo con el expediente (AAAA-MM-DD).",
 ]
-
 
 def buscar_persona(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[str, Any]:
     """
@@ -65,7 +64,11 @@ def buscar_persona(json_data: Dict[str, Any], filtro: str, valor: Any) -> Dict[s
                      f"Opciones válidas: {PERSONA_FILTROS_DISPONIBLES}"
         }
 
-    # if not res or all(not v for v in res.values()):
-    #     return buscar_en_json_global(json_data, valor)
+    if not res or (isinstance(res, dict) and not any(res.values())):
+        return {
+            "mensaje": "No se encontraron resultados específicos. "
+                       "Mostrando coincidencias aproximadas dentro del dominio 'personas'.",
+            "fallback": buscar_en_json_por_dominio(json_data, "personas", valor)
+        }
 
     return res

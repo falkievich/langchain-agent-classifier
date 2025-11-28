@@ -8,21 +8,20 @@
 
 ---
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 
-- [🚀 Quick Start](#-quick-start)
+- [Quick Start](#quick-start)
   - [Opción 1: Docker (Recomendado)](#opción-1-docker-recomendado)
   - [Opción 2: Ejecución Local](#opción-2-ejecución-local)
-- [🏗️ Arquitectura](#arquitectura)
-- [⚙️ Funcionalidades](#️-funcionalidades)
-  - [1️⃣ Agente LLM con Tools](#1️⃣-agente-llm-con-tools)
-  - [2️⃣ Extracción de Personas con LLM](#2️⃣-extracción-de-personas-con-llm)
-- [🔐 Configuración](#configuración)
+- [Funcionalidades](#funcionalidades)
+  - [Agente LLM con Tools](#agente-llm-con-tools)
+  - [Extracción de Personas con LLM](#extracción-de-personas-con-llm)
+- [Configuración](#configuración)
 
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Opción 1: Docker (Recomendado)
 
@@ -48,7 +47,7 @@ docker-compose down
 
 ```
 
-### Opción 2: Local
+### Opción 2: Ejecución Local
 
 ```bash
 # 1. Instalar dependencias
@@ -69,26 +68,26 @@ curl http://localhost:8000/api/extract-persons/health
 
 ---
 
-## ⚙️ Funcionalidades
+## Funcionalidades
 
-### 1️⃣ Agente LLM con Tools
+### Agente LLM con Tools
 
 > Sistema de agente inteligente que analiza expedientes judiciales y responde preguntas en lenguaje natural usando herramientas especializadas.
 
-#### 📍 Endpoint
+#### Endpoint
 
 ```http
 POST /api/agent_llm
 ```
 
-#### 📥 Parámetros
+#### Parámetros
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
 | `user_prompt` | Form (string) | Pregunta en lenguaje natural |
 | `json_file` | File | JSON con datos del expediente |
 
-#### 🔄 Pipeline de Ejecución
+#### Pipeline de Ejecución
 
 ```
 Usuario
@@ -122,7 +121,7 @@ Usuario
                Respuesta al Usuario
 ```
 
-#### 🛠️ Tools Disponibles
+#### Tools Disponibles
 
 <details>
 <summary><b>Listados</b></summary>
@@ -165,7 +164,7 @@ Usuario
 
 </details>
 
-#### 📝 Ejemplo de Uso
+#### Ejemplo de Uso
 
 **Request:**
 ```bash
@@ -183,23 +182,23 @@ curl -X POST http://localhost:8000/api/agent_llm \
 
 ---
 
-### 2️⃣ Extracción de Personas con LLM
+### Extracción de Personas con LLM
 
 > Sistema especializado que extrae y consolida automáticamente TODAS las personas mencionadas en un expediente judicial.
 
-#### 📍 Endpoint
+#### Endpoint
 
 ```http
 POST /api/extract-persons-with-llm
 ```
 
-#### 📥 Parámetros
+#### Parámetros
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
 | `json_txt_file` | File | JSON o TXT con datos del expediente |
 
-#### 🔄 Pipeline de Ejecución
+#### Pipeline de Ejecución
 
 ```
 Usuario
@@ -228,16 +227,16 @@ Usuario
          JSON Estructurado con Personas
 ```
 
-#### ✨ Características
+#### Características
 
 | Feature | Descripción |
 |---------|-------------|
-| ✅ **Consolidación Automática** | Detecta y fusiona personas duplicadas |
-| ✅ **Extracción Exhaustiva** | Busca en TODAS las secciones del JSON |
-| ✅ **Roles Múltiples** | Agrupa todos los roles de una persona |
-| ✅ **Datos Completos** | Mezcla información de todas las fuentes |
+| **Consolidación Automática** | Detecta y fusiona personas duplicadas |
+| **Extracción Exhaustiva** | Busca en TODAS las secciones del JSON |
+| **Roles Múltiples** | Agrupa todos los roles de una persona |
+| **Datos Completos** | Mezcla información de todas las fuentes |
 
-#### 📝 Ejemplo de Consolidación
+#### Ejemplo de Consolidación
 
 **Entrada:**
 ```json
@@ -279,7 +278,7 @@ Usuario
 }
 ```
 
-#### 🩺 Health Check
+#### Health Check
 
 ```bash
 curl http://localhost:8000/api/extract-persons/health
@@ -287,7 +286,7 @@ curl http://localhost:8000/api/extract-persons/health
 
 ---
 
-## 🔐 Configuración
+## Configuración
 
 ### Variables de Entorno
 

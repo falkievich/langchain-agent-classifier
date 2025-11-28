@@ -3,4 +3,4 @@ fastapi
 langchain
 python-dotenv
 python-multipart
-langsmith
+# langsmith # usado en desarrollo local

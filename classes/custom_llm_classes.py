@@ -3,7 +3,7 @@ import requests
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from langchain.llms.base import LLM
+from langchain_core.language_models.llms import LLM
 
 # Cargar variables de entorno
 load_dotenv()

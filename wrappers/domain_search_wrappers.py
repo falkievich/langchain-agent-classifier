@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from langchain.agents import Tool as LangChainTool
+from langchain_core.tools import Tool as LangChainTool
 
 # Importamos la función global y su lista de filtros disponibles
 from global_functions.abogado_global import buscar_abogado, ABOGADO_FILTROS_DISPONIBLES

@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from langchain.agents import Tool as LangChainTool
+from langchain_core.tools import Tool as LangChainTool
 from global_functions.search_globals import (
     buscar_por_codigo_global,
     buscar_por_nombre_global,

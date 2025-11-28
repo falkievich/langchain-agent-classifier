@@ -1,0 +1,59 @@
+# .dockerignore
+# Evitar copiar archivos innecesarios al contenedor Docker
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Entornos virtuales
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+build.ps1
+.dockerignore
+
+# Documentación y tests
+*.md
+README.md
+test_*.py
+*_test.py
+
+# Archivos de configuración local
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Temporales
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Archivos de prueba
+test_person_extraction.py
+PERSON_EXTRACTION_ENDPOINT.md

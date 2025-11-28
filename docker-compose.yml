@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  langchain-agent-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Habilitar BuildKit cache para acelerar rebuilds
+      cache_from:
+        - langchain-agent-classifier-backend:latest
+    image: langchain-agent-classifier-backend:latest
+    container_name: langchain-agent-classifier-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Montar el .env para que lea las variables de entorno
+      - ./.env:/app/.env:ro
+      # Opcional: Montar código en desarrollo (comentar en producción)
+      # - ./app.py:/app/app.py
+      # - ./routes:/app/routes
+      # - ./services:/app/services
+    environment:
+      # Variables de entorno
+      - PYTHONUNBUFFERED=1
+      # Opcional: sobrescribir variables del .env aquí
+      # - BASE_URL=http://datos-desa:3000/api/chat/completions
+      # - MODEL_ID=gpt-oss:20b
+    restart: unless-stopped
+    networks:
+      - langchain-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/extract-persons/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  langchain-network:
+    driver: bridge

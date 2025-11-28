@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from langchain.agents import Tool as LangChainTool
+from langchain_core.tools import Tool as LangChainTool
 from global_functions.listados_globales import listar_todo, LISTAR_DOMINIOS_DISPONIBLES
 
 

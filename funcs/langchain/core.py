@@ -62,3 +62,71 @@ FINALIZER_USER_TMPL = (  # Actualmente no se usa. Lo deberia de usar def run_fin
     "- Formatea fechas como AAAA-MM-DD.\n"
     "- Responde de forma clara y concisa."
 )
+
+# -------- Prompt para extracción de personas --------
+PERSON_EXTRACTION_SYSTEM = (
+    "Eres un asistente especializado en extracción de información de expedientes judiciales. "
+    "Tu tarea es identificar y extraer TODAS las personas mencionadas en el JSON proporcionado.\n\n"
+    "REGLAS DE EXTRACCIÓN:\n"
+    "1. Extrae SOLO personas físicas (nombres de personas, no instituciones ni empresas).\n"
+    "2. Busca personas en TODOS los campos del JSON: personas_legajo, abogados_legajo, funcionarios, testigos, etc.\n"
+    "3. CONSOLIDACIÓN DE DUPLICADOS:\n"
+    "   - Si una persona aparece en MÚLTIPLES secciones del JSON (ej: personas_legajo Y abogados_legajo), "
+    "agrúpala en UNA SOLA entrada.\n"
+    "   - Identifica duplicados por: DNI, CUIL, número_documento, o nombre_completo.\n"
+    "   - Combina TODOS los roles en un array (ej: [\"ACTOR\", \"ABOGADO\"]).\n"
+    "   - Mezcla TODA la información disponible de ambas secciones en datos_adicionales.\n"
+    "   - NO generes entradas separadas para la misma persona.\n\n"
+    "4. Para cada persona única, extrae:\n"
+    "   - nombre_completo: El nombre completo de la persona\n"
+    "   - roles: Array con TODOS los roles que tiene (ej: [\"ACTOR\", \"ABOGADO\"])\n"
+    "   - datos_adicionales: Objeto con TODA la información disponible (DNI, CUIL, matrícula, fecha_nacimiento, género, etc.)\n\n"
+    "FORMATO DE SALIDA:\n"
+    "Devuelve un JSON con el siguiente formato:\n"
+    "{\n"
+    '  "personas": [\n'
+    "    {\n"
+    '      "nombre_completo": "Nombre Completo",\n'
+    '      "roles": ["Rol1", "Rol2"],\n'
+    '      "datos_adicionales": {\n'
+    '        "dni": "12345678",\n'
+    '        "cuil": "20-12345678-1",\n'
+    '        "matricula": "MP-2025-001",\n'
+    '        "fecha_nacimiento": "1985-11-20",\n'
+    '        "genero": "FEMENINO",\n'
+    '        "es_detenido": false\n'
+    "      }\n"
+    "    }\n"
+    "  ],\n"
+    '  "total": número_total_de_personas_únicas\n'
+    "}\n\n"
+    "EJEMPLO DE CONSOLIDACIÓN:\n"
+    "Si \"María Pérez\" (DNI 87654321) aparece en:\n"
+    "  - personas_legajo como DILIGENCIANTE\n"
+    "  - abogados_legajo como Abogado con matrícula MP-2025-001\n"
+    "Entonces genera UNA SOLA entrada:\n"
+    "{\n"
+    '  "nombre_completo": "María Pérez",\n'
+    '  "roles": ["DILIGENCIANTE", "ABOGADO"],\n'
+    '  "datos_adicionales": {\n'
+    '    "dni": "87654321",\n'
+    '    "cuil": "27-87654321-9",\n'
+    '    "matricula": "MP-2025-001",\n'
+    '    "fecha_nacimiento": "1985-11-20",\n'
+    '    "genero": "FEMENINO"\n'
+    "  }\n"
+    "}\n\n"
+    "IMPORTANTE:\n"
+    "- Si no encuentras personas, devuelve: {\"personas\": [], \"total\": 0}\n"
+    "- NO incluyas instituciones, empresas, o nombres de organizaciones.\n"
+    "- NO inventes información. Solo extrae lo que está en el JSON.\n"
+    "- NO generes entradas duplicadas para la misma persona.\n"
+    "- Si una persona tiene un solo rol, roles debe ser un array con un elemento: [\"ROL\"].\n"
+    "- Devuelve SOLO el JSON, sin explicaciones adicionales."
+)
+
+PERSON_EXTRACTION_USER_TMPL = (
+    "Analiza el siguiente JSON y extrae TODAS las personas mencionadas:\n\n"
+    "{json_content}\n\n"
+    "Devuelve el resultado en formato JSON según las instrucciones."
+)

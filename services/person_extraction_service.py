@@ -40,7 +40,7 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         }
     """
 
-    print("SERVICIO DE EXTRACCIÓN DE PERSONAS")
+    print("\nSERVICIO DE EXTRACCIÓN DE PERSONAS")
     
     try:
         # Si es dict, convertir a JSON string formateado

@@ -28,76 +28,16 @@ def _parse_function_calls(raw: str) -> list:
         buscar_persona("rol", "Demandante")
         listar_todo("expediente")
     en lista de dicts [{tool, args}, ...].
-    
-    También intenta parsear si el modelo devuelve JSON con formato alternativo.
     """
     calls = []
-    
-    print(f"\n🔍 Parseando raw output (length: {len(raw)} chars)")
-    print(f"🔍 Primeros 200 chars: {raw[:200]}")
-    print(f"🔍 Últimos 200 chars: {raw[-200:]}")
-    
-    # Intento 1: Parsear como JSON si el raw parece ser JSON
-    raw_stripped = raw.strip()
-    
-    # Limpiar posibles escapes dobles
-    if '\\"' in raw_stripped:
-        print(f"⚠️ Detectadas comillas escapadas dobles, intentando limpiar...")
-        raw_stripped = raw_stripped.replace('\\"', '"')
-    
-    # Intentar extraer JSON si está entre texto
-    json_match = re.search(r'\{.*\}', raw_stripped, re.DOTALL)
-    if json_match:
-        json_candidate = json_match.group(0)
-        print(f"🔍 JSON candidato encontrado (length: {len(json_candidate)})")
-        print(f"🔍 JSON candidato preview: {json_candidate[:300]}")
-        try:
-            data = json.loads(json_candidate)
-            print(f"🔍 JSON parseado exitosamente. Type: {type(data)}")
-            if isinstance(data, dict):
-                print(f"🔍 Keys: {list(data.keys())}")
-            else:
-                print(f"🔍 Es una lista con {len(data)} elementos")
-            
-            # Formato: {"steps": [{"action": "...", "params": [...]}]}
-            if isinstance(data, dict) and "steps" in data:
-                print(f"🔍 Formato detectado: steps (count: {len(data['steps'])})")
-                for step in data["steps"]:
-                    tool = step.get("action", "")
-                    args = step.get("params", [])
-                    print(f"   - {tool}({args})")
-                    calls.append({"tool": tool, "args": args})
-                return calls
-            
-            # Formato: {"calls": [{"tool": "...", "args": [...]}]}
-            if isinstance(data, dict) and "calls" in data:
-                print(f"🔍 Formato detectado: calls (count: {len(data['calls'])})")
-                for call in data["calls"]:
-                    print(f"   - {call}")
-                    calls.append(call)
-                return calls
-            
-            # Formato: [{"tool": "...", "args": [...]}]
-            if isinstance(data, list):
-                print(f"🔍 Formato detectado: lista directa (count: {len(data)})")
-                return data
-            
-            print(f"⚠️ JSON parseado pero formato no reconocido. Data: {data}")
-                
-        except json.JSONDecodeError as e:
-            print(f"⚠️ Error parseando JSON: {e}")
-    
-    # Intento 2: Parsear como llamadas de función línea por línea
-    print(f"🔍 Intentando parsear como llamadas de función...")
-    lines_processed = 0
+    # separar en líneas limpias
     for line in raw.strip().splitlines():
         line = line.strip()
-        if not line or line.startswith("#") or line.startswith("//"):
+        if not line:
             continue
         match = re.match(r"(\w+)\((.*)\)", line)
         if not match:
             continue
-        lines_processed += 1
         tool = match.group(1)
         args_str = match.group(2).strip()
         if not args_str:
@@ -105,10 +45,7 @@ def _parse_function_calls(raw: str) -> list:
         else:
             # separar por comas, limpiar comillas
             args = [a.strip().strip('"').strip("'") for a in args_str.split(",")]
-        print(f"   - Línea parseada: {tool}({args})")
         calls.append({"tool": tool, "args": args})
-    
-    print(f"🔍 Total líneas procesadas: {lines_processed}, calls encontradas: {len(calls)}")
     return calls
 
 def build_tools_bullets(allowed_tools) -> str:
@@ -118,53 +55,39 @@ def build_tools_bullets(allowed_tools) -> str:
 
 def run_planner(llm: CustomOpenWebLLM, user_prompt: str, allowed_tools, max_calls: int = MAX_CALLS) -> Plan:
     """Invoca al Planner (LLM) para obtener un plan JSON y lo valida."""
-
-    # 1) Preparar prompts (system + user) con reglas y listado de tools
+    
     system = PLANNER_SYSTEM_TPL.substitute(max_calls=max_calls)
     tools_bullets = build_tools_bullets(allowed_tools)
+    user = PLANNER_USER_TMPL.format(user_prompt=user_prompt, tools_bullets=tools_bullets)
+    full_prompt = f"{system}\n\n{user}"
     
-    # Usar replace() en lugar de format() para evitar problemas con llaves {} en el contenido
-    user = PLANNER_USER_TMPL.replace("{user_prompt}", user_prompt).replace("{tools_bullets}", tools_bullets)
-
-    # 2) Llamar al LLM (una sola vez) para que devuelva SOLO JSON
-    raw = llm._call(prompt=f"{system}\n\n{user}", stop=None)
-
-    print("\n=== RAW OUTPUT DEL PLANNER ===")
-    print(raw)
-    print("==============================\n")
-
-    # 3) Parsear salida (función o JSON) y validar con Pydantic Plan
+    # El LLM imprimirá sus propios prints de debug
+    raw = llm._call(prompt=full_prompt, stop=None)
+    
+    json_str = raw.strip()
+    if not json_str.startswith("{"):
+        start, end = json_str.find("{"), json_str.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            json_str = json_str[start:end+1]
+    
     try:
         calls_data = _parse_function_calls(raw)
-        print(f"=== CALLS PARSEADAS: {len(calls_data)} ===")
-        for i, call in enumerate(calls_data):
-            if isinstance(call, dict) and "tool" in call and "args" in call:
-                args_repr = ', '.join(repr(a) for a in call['args'])
-                print(f"  {i+1}. {call['tool']}({args_repr})")
-            else:
-                print(f"  {i+1}. [FORMATO INESPERADO]: {call}")
-        print()
-        
+    except Exception as e:
+        raise RuntimeError(f"Error al parsear llamadas de función: {e}\nRAW:\n{raw}")
+    
+    try:
         plan = Plan(calls=calls_data)
     except ValidationError as e:
-        print(f"❌ Error de validación Pydantic: {e}")
-        print(f"❌ Calls data recibidas: {calls_data}")
         raise RuntimeError(f"Planner devolvió formato inválido: {e}\nRAW:\n{raw}")
-    except Exception as e:
-        print(f"❌ Error inesperado parseando plan: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
-        raise RuntimeError(f"Error parseando plan: {e}\nRAW:\n{raw}")
-
-    # 5) Validaciones de negocio (tools permitidas + tope de llamadas)
+    
     allowed_names = {t.name for t in allowed_tools}
     for c in plan.calls:
         if c.tool not in allowed_names:
             raise RuntimeError(f"Tool no permitida en plan: {c.tool}")
-
+    
     if len(plan.calls) > max_calls:
         plan.calls = plan.calls[:max_calls]
-
+    
     return plan
 
 # -------- Registry --------

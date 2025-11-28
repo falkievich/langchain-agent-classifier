@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 from classes.custom_llm_classes import CustomOpenWebLLM
-from funcs.langchain.pipeline import run_planned_parallel # Importamos las Pipeline
+from funcs.langchain.pipeline import run_planned_parallel
 
 # Importamos las Tools
 from wrappers.listados_wrappers import make_listados_tools
@@ -16,7 +16,7 @@ def build_all_tools(json_data: Dict[str, Any]) -> List[Any]:
         + make_global_search_tools(json_data)
     )
 
-    # --- DEBUG: imprimir qué tools se están pasando al LLM ---
+    # Print esencial: mostrar tools disponibles
     print("\n=== TOOLS DISPONIBLES PARA EL LLM ===")
     for t in tools:
         try:
@@ -39,12 +39,10 @@ async def generate_agent_response(user_prompt: str, json_data: Dict[str, Any]) -
     try:
         tools = build_all_tools(json_data)
         llm = get_llm()
-        return await run_planned_parallel(llm, user_prompt, tools)
+        result = await run_planned_parallel(llm, user_prompt, tools)
+        return result
     except Exception as e:
-        print(f"\n❌ ERROR EN GENERATE_AGENT_RESPONSE ❌")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {e}")
+        print(f"\n❌ ERROR: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        print()
         raise

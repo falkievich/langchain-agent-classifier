@@ -15,16 +15,16 @@ services:
     volumes:
       # Montar el .env para que lea las variables de entorno
       - ./.env:/app/.env:ro
-      # Opcional: Montar código en desarrollo (comentar en producción)
-      # - ./app.py:/app/app.py
-      # - ./routes:/app/routes
-      # - ./services:/app/services
+    # Leer variables de entorno desde .env (más idiomático en Compose)
+    env_file:
+      - ./.env
     environment:
       # Variables de entorno
       - PYTHONUNBUFFERED=1
-      # Opcional: sobrescribir variables del .env aquí
-      # - BASE_URL=http://datos-desa:3000/api/chat/completions
-      # - MODEL_ID=gpt-oss:20b
+    # Mapear el nombre host.docker.internal al gateway del host para que desde dentro del contenedor
+    # puedas llegar al servicio Ollama publicado en el host (puerto 3000)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - langchain-network

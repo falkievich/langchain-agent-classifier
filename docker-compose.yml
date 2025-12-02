@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: langchain-agent-classifier  # Evitar que colisione con otros compose
+
 services:
   langchain-agent-backend:
     build:

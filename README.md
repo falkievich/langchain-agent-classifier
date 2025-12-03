@@ -304,7 +304,6 @@ API_KEY=<tu_api_key>
 # ============================================================
 MODEL_ID=<modelo_principal>          # Modelo para agente con tools
 MODEL_ID_2=<modelo_extraccion>       # Modelo para extracción de personas
-SMALL_MODEL_ID=<modelo_pequeño>      # Modelo pequeño (uso futuro)
 
 # ============================================================
 # LangChain Observability (Opcional)
@@ -319,7 +318,6 @@ SMALL_MODEL_ID=<modelo_pequeño>      # Modelo pequeño (uso futuro)
 - `API_KEY`: Clave de autenticación del servidor LLM
 - `MODEL_ID`: Nombre del modelo LLM para el agente (ej: `gpt-oss:20b`, `llama2:13b`)
 - `MODEL_ID_2`: Nombre del modelo LLM para extracción de personas
-- `SMALL_MODEL_ID`: Modelo pequeño para optimizaciones futuras
 
 ### Endpoints
 

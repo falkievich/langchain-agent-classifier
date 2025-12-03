@@ -69,7 +69,7 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         # Llamar al LLM
         raw_response = llm._call(prompt=full_prompt, stop=None)
         
-        print(f"✅ Respuesta recibida: {len(raw_response)} caracteres")
+        print(f" Respuesta recibida: {len(raw_response)} caracteres")
         
         # Limpiar y extraer JSON de la respuesta
         json_str_clean = raw_response.strip()
@@ -91,7 +91,7 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         if "total" not in result:
             result["total"] = len(result.get("personas", []))
         
-        print(f"✅ Personas extraídas: {result['total']}")
+        print(f" Personas extraídas: {result['total']}")
         print("="*70 + "\n")
         
         return result

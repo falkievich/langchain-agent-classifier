@@ -27,16 +27,21 @@ class CustomOpenWebLLM(LLM):
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         """
-        Envia el prompt al modelo Open WebUI y devuelve la respuesta como string.
+        Envia el prompt al modelo Open WebUI o Ollama y devuelve la respuesta como string.
         """
         # Prints esenciales de debugging
-        print(f"\n🔍 DEBUG LLM: Usando modelo '{self.model}'")
-        print(f"🔍 DEBUG LLM: Prompt length: {len(prompt)} chars")
+        print(f"\n DEBUG LLM: Base URL: {self.base_url}")
+        print(f" DEBUG LLM: Usando modelo '{self.model}'")
+        print(f" DEBUG LLM: Prompt length: {len(prompt)} chars")
         
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        
+        # Solo agregar Authorization si la API key no es "ollama" (conexión directa a Ollama)
+        if self.api_key and self.api_key.lower() != "ollama":
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
 
         payload = {
             "model": self.model,
@@ -46,25 +51,29 @@ class CustomOpenWebLLM(LLM):
             ],
         }
 
-        print(f"🔍 DEBUG LLM: Messages count: {len(payload['messages'])}")
+        try:
+            resp = requests.post(self.base_url, headers=headers, json=payload, timeout=120)
+            
+            print(f" DEBUG LLM: Status code: {resp.status_code}")
+            print(f" DEBUG LLM: Response length: {len(resp.text)} chars\n")
+            
+            resp.raise_for_status()
 
-        resp = requests.post(self.base_url, headers=headers, json=payload, timeout=120)
-        
-        print(f"🔍 DEBUG LLM: Status code: {resp.status_code}")
-        print(f"🔍 DEBUG LLM: Response length: {len(resp.text)} chars\n")
-        
-        resp.raise_for_status()
+            data = resp.json()
+            text = data["choices"][0]["message"]["content"]
 
-        data = resp.json()
-        text = data["choices"][0]["message"]["content"]
+            # Respeta stop sequences si las hay
+            if stop:
+                for s in stop:
+                    if s in text:
+                        text = text.split(s)[0]
 
-        # Respeta stop sequences si las hay
-        if stop:
-            for s in stop:
-                if s in text:
-                    text = text.split(s)[0]
-
-        return text.strip()
+            return text.strip()
+        except requests.exceptions.RequestException as e:
+            print(f" ERROR LLM: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f" Response body: {e.response.text}")
+            raise
 
     @property
     def _identifying_params(self) -> dict:

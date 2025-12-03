@@ -44,9 +44,9 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
         -r requirements.txt
 
 # Verificar que las dependencias críticas se instalaron correctamente
-RUN python -c "import fastapi; print('✅ FastAPI instalado')" && \
-    python -c "import langchain; print('✅ LangChain instalado')" && \
-    python -c "import dotenv; print('✅ python-dotenv instalado')"
+RUN python -c "import fastapi; print(' FastAPI instalado')" && \
+    python -c "import langchain; print(' LangChain instalado')" && \
+    python -c "import dotenv; print(' python-dotenv instalado')"
 
 # ============================================================
 # CAPA 3: CÓDIGO DE LA APLICACIÓN (se invalida con cada cambio)

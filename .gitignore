@@ -1,4 +1,5 @@
 .env
+.env_produccion
 .venv
 /funcs/langchain/__pycache__
 /funcs/langchain

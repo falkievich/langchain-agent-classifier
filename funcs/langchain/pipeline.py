@@ -28,17 +28,21 @@ prep_step = RunnableLambda(_prep)
 def _plan_with_debug(x):
     plan = run_planner(x["llm"], x["user_prompt"], x["tools"], max_calls=MAX_CALLS)
     
-    print("\n=== PLAN GENERADO POR EL LLM ===")
+    # print("\n=== PLAN GENERADO POR EL LLM ===")
     try:
         if hasattr(plan, "model_dump"):
-            print(json.dumps(plan.model_dump(), indent=2, ensure_ascii=False))
+            # print(json.dumps(plan.model_dump(), indent=2, ensure_ascii=False))
+            pass
         elif isinstance(plan, dict):
-            print(json.dumps(plan, indent=2, ensure_ascii=False))
+            # print(json.dumps(plan, indent=2, ensure_ascii=False))
+            pass
         else:
-            print(plan)
+            # print(plan)
+            pass
     except Exception as e:
-        print("Error al imprimir el plan:", e)
-    print("================================\n")
+        # print("Error al imprimir el plan:", e)
+        pass
+    #print("================================\n")
     
     return {**x, "plan": plan}
 

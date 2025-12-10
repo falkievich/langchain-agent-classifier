@@ -17,13 +17,13 @@ def build_all_tools(json_data: Dict[str, Any]) -> List[Any]:
     )
 
     # Print esencial: mostrar tools disponibles
-    print("\n=== TOOLS DISPONIBLES PARA EL LLM ===")
-    for t in tools:
-        try:
-            print(f"- {t.name}: {t.description}")
-        except Exception:
-            print(f"- {t}")
-    print("======================================\n")
+    # print("\n=== TOOLS DISPONIBLES PARA EL LLM ===")
+    # for t in tools:
+    #     try:
+    #         print(f"- {t.name}: {t.description}")
+    #     except Exception:
+    #         print(f"- {t}")
+    # print("======================================\n")
 
     return tools
 
@@ -42,7 +42,7 @@ async def generate_agent_response(user_prompt: str, json_data: Dict[str, Any]) -
         result = await run_planned_parallel(llm, user_prompt, tools)
         return result
     except Exception as e:
-        print(f"\n❌ ERROR: {type(e).__name__}: {e}")
+        # print(f"\n❌ ERROR: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         raise

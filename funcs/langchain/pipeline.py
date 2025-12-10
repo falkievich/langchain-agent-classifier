@@ -48,14 +48,14 @@ plan_step = RunnableLambda(_plan_with_debug)
 async def _exec_step(x):
     results_dict, bundle = await execute_plan_parallel(x["plan"], x["registry"])
     
-    print("\n=== RESULTADOS EJECUTADOS ===")
-    for tool, res in results_dict.items():
-        print(f"\nTool: {tool}")
-        try:
-            print(json.dumps(res, indent=2, ensure_ascii=False))
-        except Exception:
-            print(res)
-    print("================================\n")
+    # print("\n=== RESULTADOS EJECUTADOS ===")
+    # for tool, res in results_dict.items():
+    #     print(f"\nTool: {tool}")
+    #     try:
+    #         print(json.dumps(res, indent=2, ensure_ascii=False))
+    #     except Exception:
+    #         print(res)
+    # print("================================\n")
     
     return {
         "llm": x["llm"],

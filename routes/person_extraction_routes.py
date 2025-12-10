@@ -52,7 +52,7 @@ async def extract_persons(
     try:
         result = extract_persons_from_json(json_data)
     except Exception as e:
-        print(f"❌ Error en endpoint extract-persons: {e}")
+        # print(f"❌ Error en endpoint extract-persons: {e}")
         traceback.print_exc()
         raise HTTPException(
             status_code=500, 

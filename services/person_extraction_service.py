@@ -103,9 +103,9 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         }
     """
 
-    print("\n" + "="*70)
-    print("SERVICIO DE EXTRACCIÓN DE PERSONAS")
-    print("="*70)
+    # print("\n" + "="*70)
+    # print("SERVICIO DE EXTRACCIÓN DE PERSONAS")
+    # print("="*70)
     
     try:
         # Si es string, convertir a dict
@@ -114,22 +114,20 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         else:
             json_data = json_content
         
-        print(f"📄 JSON original recibido: {len(json.dumps(json_data))} caracteres")
+        # print(f"📄 JSON original recibido: {len(json.dumps(json_data))} caracteres")
         
         # Extraer solo campos relevantes
         relevant_data = extract_relevant_fields(json_data)
         json_str = json.dumps(relevant_data, indent=2, ensure_ascii=False)
         
-        print(f"✂️  JSON filtrado para LLM: {len(json_str)} caracteres")
-        print(f"📊 Reducción: {len(json.dumps(json_data)) - len(json_str)} caracteres (~{100 - (len(json_str)/len(json.dumps(json_data))*100):.1f}%)")
-        print(f"\n📋 Secciones extraídas:")
-        print(f"   - personas_legajo: {len(relevant_data.get('personas_legajo', []))} registros")
-        print(f"   - abogados_legajo: {len(relevant_data.get('abogados_legajo', []))} registros")
-        print(f"   - funcionarios: {len(relevant_data.get('funcionarios', []))} registros")
+        # print(f"\n📋 Secciones extraídas:")
+        # print(f"   - personas_legajo: {len(relevant_data.get('personas_legajo', []))} registros")
+        # print(f"   - abogados_legajo: {len(relevant_data.get('abogados_legajo', []))} registros")
+        # print(f"   - funcionarios: {len(relevant_data.get('funcionarios', []))} registros")
         
         # Obtener LLM
         llm = get_extraction_llm()
-        print(f"\n🤖 Usando modelo: {llm.model}")
+        # print(f"\n🤖 Usando modelo: {llm.model}")
         
         # Preparar prompts
         system_prompt = PERSON_EXTRACTION_SYSTEM
@@ -137,13 +135,13 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
         
-        print(f"📝 Prompt total: {len(full_prompt)} caracteres")
-        print("\n⏳ Invocando LLM para extraer personas...")
+        # print(f"📝 Prompt total: {len(full_prompt)} caracteres")
+        # print("\n⏳ Invocando LLM para extraer personas...")
         
         # Llamar al LLM
         raw_response = llm._call(prompt=full_prompt, stop=None)
         
-        print(f"✅ Respuesta recibida: {len(raw_response)} caracteres")
+        # print(f"✅ Respuesta recibida: {len(raw_response)} caracteres")
         
         # Limpiar y extraer JSON de la respuesta
         json_str_clean = raw_response.strip()
@@ -165,20 +163,20 @@ def extract_persons_from_json(json_content: Union[str, Dict[str, Any]]) -> Dict[
         if "total" not in result:
             result["total"] = len(result.get("personas", []))
         
-        print(f"\n🎯 Personas extraídas: {result['total']}")
-        print("="*70 + "\n")
+        # print(f"\n🎯 Personas extraídas: {result['total']}")
+        # print("="*70 + "\n")
         
         return result
         
     except json.JSONDecodeError as e:
-        print(f"❌ Error al parsear JSON: {e}")
+        # print(f"❌ Error al parsear JSON: {e}")
         return {
             "error": f"JSON inválido: {str(e)}",
             "personas": [],
             "total": 0
         }
     except Exception as e:
-        print(f"❌ Error en extracción: {type(e).__name__}: {e}")
+        # print(f"❌ Error en extracción: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         return {

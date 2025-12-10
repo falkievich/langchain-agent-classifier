@@ -102,8 +102,8 @@ def buscar_en_json_por_dominio(
         }
 
     # Debug
-    print(f"[JSON_FALLBACK] Activado fallback para dominio '{dominio}' "
-          f"(clave raíz: '{clave_dominio}') con query: '{query}'")
+    # print(f"[JSON_FALLBACK] Activado fallback para dominio '{dominio}' "
+    #       f"(clave raíz: '{clave_dominio}') con query: '{query}'")
 
     matches = _deep_search_dominio(sub_json, query)
 

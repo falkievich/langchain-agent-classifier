@@ -2,7 +2,6 @@
 .env_produccion
 .venv
 /funcs/langchain/__pycache__
-/funcs/langchain
 /tools_wrappers/__pycache__
 /wrappers/__pycache__
 /global_functions/__pycache__

@@ -1,15 +1,7 @@
 import asyncio, json
 from langchain_core.runnables import RunnableLambda, RunnableParallel
 
-# -------- Importaciones --------
-# CustomOpenWebLLM: wrapper del LLM para invocar el modelo.
-from classes.custom_llm_classes import CustomOpenWebLLM
-
-from funcs.langchain.core import (
-    FINALIZER_SYSTEM, FINALIZER_USER_TMPL,  # prompts del finalizador
-    BUNDLE_MAX_CHARS,                       # tope de serialización del bundle
-    MAX_CONCURRENCY, CALL_TIMEOUT_SEC       # límites de ejecución
-)
+from funcs.langchain.core import MAX_CONCURRENCY, CALL_TIMEOUT_SEC
 
 # -------- Executor --------
 # Ejecuta todas las llamadas del Plan en paralelo y devuelve:
@@ -59,12 +51,57 @@ async def execute_plan_parallel(plan, registry: dict):
     return results_dict, bundle
 
 # -------- Finalizer --------
-# En vez de generar respuesta natural en español, devolvemos directamente el JSON crudo del bundle.
-def run_finalizer(llm: CustomOpenWebLLM, user_prompt: str, bundle: list) -> str:
-    """Devuelve el JSON del bundle con resultados de las tools (sin post-procesar en lenguaje natural)."""
-    for item in bundle:
-        if "status" not in item.get("result", {}):
-            item["result"] = {"status": "ok", "data": item["result"]}
+# Serializa el resultado del Searcher como JSON string.
+# Sin LLM. Sin síntesis en lenguaje natural.
+#
+# El Searcher devuelve siempre:
+#   { "op": "...", "resultado": <dict|list> }
+#
+# El Finalizer lo serializa directamente y lo devuelve al cliente.
+def run_finalizer(resultado: dict) -> str:
+    """
+    Serializa el resultado del Searcher como JSON string.
 
-    # Devolvemos bundle completo como JSON string
-    return json.dumps(bundle, ensure_ascii=False, indent=2)
+    Normaliza el resultado para garantizar que siempre tenga
+    la misma estructura de salida, independientemente de la operación.
+
+    Args:
+        resultado: Dict devuelto por ejecutar_plan().
+                   Estructura esperada: { "op": "...", "resultado": ... }
+
+    Returns:
+        JSON string con la siguiente estructura:
+        {
+          "op":        "FIND",
+          "resultado": [...],
+          "total":     3          ← solo para listas
+        }
+        o en caso de error:
+        {
+          "op":    "FIND",
+          "error": "mensaje de error"
+        }
+    """
+    # Caso error del Searcher
+    if "error" in resultado:
+        return json.dumps(resultado, ensure_ascii=False, indent=2)
+
+    op   = resultado.get("op", "UNKNOWN")
+    data = resultado.get("resultado")
+
+    salida: dict = {"op": op}
+
+    # Si el resultado es una lista, agregar total
+    if isinstance(data, list):
+        salida["resultado"] = data
+        salida["total"]     = len(data)
+
+    # Si es un dict (GET, COUNT, PIPE)
+    elif isinstance(data, dict):
+        salida["resultado"] = data
+
+    # Fallback
+    else:
+        salida["resultado"] = data
+
+    return json.dumps(salida, ensure_ascii=False, indent=2, default=str)

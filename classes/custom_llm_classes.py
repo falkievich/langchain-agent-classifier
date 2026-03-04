@@ -29,9 +29,9 @@ class CustomOpenWebLLM(LLM):
         """
         Envia el prompt al modelo Open WebUI o Ollama y devuelve la respuesta como string.
         """
-        # print(f"\n DEBUG LLM: Base URL: {self.base_url}")
-        # print(f" DEBUG LLM: Usando modelo '{self.model}'")
-        # print(f" DEBUG LLM: Prompt length: {len(prompt)} chars")
+        print(f"\n DEBUG LLM: Base URL: {self.base_url}")
+        print(f" DEBUG LLM: Usando modelo '{self.model}'")
+        print(f" DEBUG LLM: Prompt length: {len(prompt)} chars")
         
         headers = {
             "Content-Type": "application/json",
@@ -53,8 +53,8 @@ class CustomOpenWebLLM(LLM):
         try:
             resp = requests.post(self.base_url, headers=headers, json=payload, timeout=120)
             
-            # print(f" DEBUG LLM: Status code: {resp.status_code}")
-            # print(f" DEBUG LLM: Response length: {len(resp.text)} chars\n")
+            print(f" DEBUG LLM: Status code: {resp.status_code}")
+            print(f" DEBUG LLM: Response length: {len(resp.text)} chars\n")
             
             resp.raise_for_status()
 

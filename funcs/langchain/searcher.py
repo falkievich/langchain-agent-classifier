@@ -149,10 +149,28 @@ def _seleccionar(item: dict, select: List[str]) -> dict:
     """
     Devuelve solo los campos indicados en select.
     Si select está vacío, devuelve el item completo.
+
+    Fallback especial: si se pide 'nombre_completo' y el campo no existe
+    (o es null) pero el item tiene 'apellido' y 'nombre', los concatena
+    automáticamente con el formato "APELLIDO, NOMBRE".
     """
     if not select:
         return item
-    return {campo: item.get(campo) for campo in select}
+
+    resultado = {}
+    for campo in select:
+        valor = item.get(campo)
+
+        # Fallback: construir nombre_completo desde apellido + nombre
+        if campo == "nombre_completo" and not valor:
+            apellido = item.get("apellido", "")
+            nombre   = item.get("nombre", "")
+            if apellido and nombre:
+                valor = f"{apellido.upper()}, {nombre.upper()}"
+
+        resultado[campo] = valor
+
+    return resultado
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -225,9 +243,14 @@ def _ejecutar_find_nested(json_data: dict, plan: Plan) -> List[dict]:
         # Datos del item padre (campos seleccionados del nivel superior)
         datos_padre = _seleccionar(item, plan.select)
 
-        # Sub-lista dentro del item
+        # Sub-lista dentro del item.
+        # Puede ser una lista de objetos (domicilios, relacionados, vinculos)
+        # o un objeto directo (representados en abogados_legajo).
+        # En ambos casos normalizamos a lista para poder iterar.
         sub_items = item.get(nested.path, [])
-        if not isinstance(sub_items, list):
+        if isinstance(sub_items, dict):
+            sub_items = [sub_items]  # objeto único → envolver en lista
+        elif not isinstance(sub_items, list):
             sub_items = []
 
         sub_resultados = [

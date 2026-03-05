@@ -86,6 +86,7 @@ class PasoConsulta(BaseModel):
     as_:    Optional[str]               = Field(None, alias="as", description="Alias para referenciar este resultado en pasos siguientes")
     op:     Operacion                   = Field(..., description="Operación de este paso")
     from_:  Optional[NodoPrincipal]     = Field(None, alias="from", description="Nodo principal a consultar")
+    path:   Optional[str]               = Field(None, description="Para GET dentro de PIPE: campo directo a leer")
     where:  List[Condicion]             = Field(default_factory=list)
     select: List[str]                   = Field(default_factory=list)
     nested: Optional[ConsultaAnidada]   = Field(None)

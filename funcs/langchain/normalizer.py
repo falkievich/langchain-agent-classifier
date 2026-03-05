@@ -313,6 +313,7 @@ def _normalizar_paso(paso: PasoConsulta) -> PasoConsulta:
         "as":     paso.as_,
         "op":     paso.op,
         "from":   paso.from_.value if paso.from_ else None,
+        "path":   paso.path,
         "where":  [c.model_dump() for c in _normalizar_lista_condiciones(paso.where)],
         "select": paso.select,
         "nested": _normalizar_consulta_anidada(paso.nested).model_dump() if paso.nested else None,

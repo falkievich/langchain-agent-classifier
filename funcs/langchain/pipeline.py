@@ -50,7 +50,10 @@ async def run_pipeline(llm: CustomOpenWebLLM, user_prompt: str, json_data: dict)
     catalogo     = construir_catalogo(json_data)
     cat_texto    = catalogo_a_texto(catalogo)
 
-    print(f"[PIPELINE] Catálogo construido: {len(catalogo)} nodos")
+    # print(f"[PIPELINE] Catálogo construido: {len(catalogo) - 1} nodos")  # -1 por _fuentes_identidad
+    # print("[PIPELINE] ── Catálogo ──────────────────────────────────────")
+    # print(cat_texto)
+    # print("[PIPELINE] ────────────────────────────────────────────────────")
 
     plan_raw = run_interpreter(llm, user_prompt, catalogo_texto=cat_texto)
 

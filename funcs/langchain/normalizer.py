@@ -301,10 +301,12 @@ def _normalizar_lista_condiciones(condiciones: List[Condicion]) -> List[Condicio
 # ────────────────────────────────────────────────────────────────────────────
 
 def _normalizar_consulta_anidada(nested: ConsultaAnidada) -> ConsultaAnidada:
+    nested_normalizado = _normalizar_consulta_anidada(nested.nested) if nested.nested else None
     return ConsultaAnidada(
         path=nested.path,
         where=_normalizar_lista_condiciones(nested.where),
         select=nested.select,
+        nested=nested_normalizado,
     )
 
 

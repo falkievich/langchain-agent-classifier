@@ -46,6 +46,7 @@ SUB_LISTAS_POR_NODO: Dict[str, List[str]] = {
 # Clave: (nodo, sub_lista), Valor: nombre de la sub-sub-lista dentro de cada ítem de sub_lista
 SUB_SUB_LISTAS_IDENTIDAD: Dict[tuple, str] = {
     ("personas_legajo", "relacionados"): "domicilios",
+    ("abogados_legajo", "representados"): "domicilios",
 }
 
 

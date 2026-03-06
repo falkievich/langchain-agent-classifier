@@ -226,9 +226,8 @@ def _ejecutar_find_nested(json_data: dict, plan: Plan) -> List[dict]:
     FIND_NESTED: filtra items del nodo principal y dentro de cada resultado
     baja a una sub-lista, aplica condiciones sobre ella y selecciona campos.
 
-    Ejemplo:
-        Buscar imputados en personas_legajo
-        → dentro de cada imputado, buscar en domicilios donde digital_clase_codigo == CEL
+    Soporta dos niveles de anidamiento (nested.nested) para estructuras como:
+        abogados_legajo → representados → domicilios
     """
     nested: ConsultaAnidada = plan.nested
     items   = json_data.get(plan.from_.value, [])
@@ -253,16 +252,52 @@ def _ejecutar_find_nested(json_data: dict, plan: Plan) -> List[dict]:
         elif not isinstance(sub_items, list):
             sub_items = []
 
-        sub_resultados = [
-            _seleccionar(sub, nested.select)
-            for sub in sub_items
-            if isinstance(sub, dict) and _cumple_todas(sub, nested.where)
-        ]
+        # ── Sin tercer nivel: comportamiento estándar ────────────────────────
+        if nested.nested is None:
+            sub_resultados = [
+                _seleccionar(sub, nested.select)
+                for sub in sub_items
+                if isinstance(sub, dict) and _cumple_todas(sub, nested.where)
+            ]
+            resultado.append({
+                **datos_padre,
+                nested.path: sub_resultados,
+            })
 
-        resultado.append({
-            **datos_padre,
-            nested.path: sub_resultados,
-        })
+        # ── Con tercer nivel: bajar un nivel más dentro de cada sub_item ─────
+        else:
+            nested2 = nested.nested
+            sub_resultados = []
+            for sub in sub_items:
+                if not isinstance(sub, dict):
+                    continue
+                if not _cumple_todas(sub, nested.where):
+                    continue
+
+                datos_sub = _seleccionar(sub, nested.select)
+
+                # Tercer nivel (ej: representados → domicilios)
+                sub_sub_items = sub.get(nested2.path, [])
+                if isinstance(sub_sub_items, dict):
+                    sub_sub_items = [sub_sub_items]
+                elif not isinstance(sub_sub_items, list):
+                    sub_sub_items = []
+
+                sub_sub_resultados = [
+                    _seleccionar(ss, nested2.select)
+                    for ss in sub_sub_items
+                    if isinstance(ss, dict) and _cumple_todas(ss, nested2.where)
+                ]
+
+                sub_resultados.append({
+                    **datos_sub,
+                    nested2.path: sub_sub_resultados,
+                })
+
+            resultado.append({
+                **datos_padre,
+                nested.path: sub_resultados,
+            })
 
     return resultado
 

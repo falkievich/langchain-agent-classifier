@@ -66,12 +66,19 @@ class ConsultaAnidada(BaseModel):
     """
     Sub-consulta dentro de un item (para FIND_NESTED).
     Ej: dentro de personas_legajo[n], buscar en domicilios donde digital_clase_codigo == CEL
+
+    Soporta un nivel adicional de anidamiento (nested.nested) para estructuras de 3 niveles.
+    Ej: abogados_legajo → representados → domicilios
     """
     model_config = ConfigDict(extra='ignore')
 
-    path:   str             = Field(..., description="Nombre de la sub-lista dentro del item. Ej: 'domicilios', 'vinculos'")
-    where:  List[Condicion] = Field(default_factory=list)
-    select: List[str]       = Field(default_factory=list, description="Campos a devolver de la sub-lista")
+    path:   str                         = Field(..., description="Nombre de la sub-lista dentro del item. Ej: 'domicilios', 'representados'")
+    where:  List[Condicion]             = Field(default_factory=list)
+    select: List[str]                   = Field(default_factory=list, description="Campos a devolver de la sub-lista")
+    nested: Optional["ConsultaAnidada"] = Field(None, description="Sub-consulta de tercer nivel (ej: representados → domicilios)")
+
+
+ConsultaAnidada.model_rebuild()  # necesario para forward reference
 
 
 # -------- Paso de Consulta (para PIPE) --------

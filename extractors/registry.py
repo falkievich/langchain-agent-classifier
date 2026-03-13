@@ -39,6 +39,7 @@ from extractors.personas_legajo import (
     listar_vinculos_personas, buscar_persona_por_codigo_vinculo,
     buscar_persona_por_descripcion_vinculo,
     listar_caracteristicas_personas,
+    buscar_persona_por_caracteristica,
     buscar_persona_por_caracteristica_genero, buscar_persona_por_es_menor,
     buscar_persona_por_ocupacion, buscar_persona_por_estado_civil,
     buscar_persona_por_nivel_educativo, buscar_persona_por_lugar_nacimiento,
@@ -273,6 +274,15 @@ TOOL_REGISTRY: List[ToolEntry] = [
     ToolEntry("listar_caracteristicas_personas", listar_caracteristicas_personas, 0,
               "Devuelve las características de todas las personas (género, menor, ocupación, etc.).",
               ["caracteristicas personas", "datos personales"], "personas_legajo"),
+    ToolEntry("buscar_persona_por_caracteristica", buscar_persona_por_caracteristica, 1,
+              "Búsqueda genérica en caracteristicas[]: busca el valor en todos los campos "
+              "(estado, genero, es_menor, edad_desde, edad_hasta, descripcion, nombre_madre, "
+              "nombre_padre, ocupacion, cant_hijos, estado_civil, nivel_social, nivel_educativo, "
+              "lugar_nacimiento, etc.). Usar cuando no existe una función específica para el campo.",
+              ["caracteristica", "caracteristicas", "nombre madre", "nombre padre",
+               "cant hijos", "nivel social", "edad desde", "edad hasta", "estado civil",
+               "lugar nacimiento", "nivel educativo", "ocupacion", "descripcion caracteristica"],
+              "personas_legajo"),
     ToolEntry("buscar_persona_por_caracteristica_genero", buscar_persona_por_caracteristica_genero, 1,
               "Filtra por género en características (MASCULINO, FEMENINO). Argumento: genero.",
               ["genero caracteristica", "caracteristica genero"], "personas_legajo"),

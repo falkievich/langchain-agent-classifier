@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse
 import json
 
 from services.agent_service import generate_agent_response
-from tools.finalizer import finalize_with_llm
+
 
 router = APIRouter()
 
@@ -12,7 +12,6 @@ router = APIRouter()
 async def process_json(
     user_prompt: str = Form(..., description="Prompt del usuario"),
     json_file: UploadFile = File(..., description="Archivo JSON del legajo"),
-    format: str = Form("json", description="'json' para datos crudos, 'natural' para respuesta redactada"),
 ):
     """
     Endpoint principal.
@@ -20,8 +19,8 @@ async def process_json(
     Flujo:
       1. LLM genera el plan (qué tools, en qué orden, con qué dependencias).
       2. Executor ejecuta determinísticamente las tools sobre el JSON.
-      3. Si format=natural, el LLM finalizer redacta la respuesta.
 
+    La respuesta SIEMPRE se devuelve en formato JSON.
     El LLM nunca accede directamente al JSON del legajo.
     """
     # 1. Leer JSON
@@ -39,16 +38,10 @@ async def process_json(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en pipeline: {e}")
 
-    # 3. Formato natural (opcional)
-    if format.lower() == "natural":
-        try:
-            result = json.loads(text)
-            bundle = result.get("bundle", result) if isinstance(result, dict) else result
-            text = finalize_with_llm(user_prompt, bundle)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error en finalizer: {e}")
+    # 3. Siempre devolver JSON
+    try:
+        parsed = json.loads(text) if isinstance(text, str) else text
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Respuesta del pipeline no es JSON válido: {e}")
 
-    text = (text or "").replace("\r\n", "\n").strip()
-    if not text.endswith("\n"):
-        text += "\n"
-    return PlainTextResponse(text)
+    return JSONResponse(content=parsed)

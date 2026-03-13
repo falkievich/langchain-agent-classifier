@@ -144,6 +144,32 @@ def listar_caracteristicas_personas(json_data: Dict[str, Any]) -> Dict[str, Any]
         })
     return {"caracteristicas_personas": out}
 
+def buscar_persona_por_caracteristica(json_data: Dict[str, Any], valor: str) -> Dict[str, Any]:
+    """
+    Búsqueda genérica dentro de caracteristicas[].
+    Busca el valor en TODOS los campos del objeto caracteristica:
+    estado, genero, es_menor, edad_desde, edad_hasta, descripcion,
+    nombre_madre, nombre_padre, ocupacion, cant_hijos, estado_civil,
+    nivel_social, nivel_educativo, lugar_nacimiento, etc.
+    Cubre cualquier campo no previsto por las funciones específicas.
+    """
+    n = normalize_and_clean(str(valor))
+    out = []
+    for p in _personas(json_data):
+        for c in (p.get("caracteristicas") or []):
+            valores = [
+                normalize_and_clean(str(v))
+                for v in c.values()
+                if v is not None and not isinstance(v, (dict, list))
+            ]
+            if any(n in v for v in valores):
+                out.append({
+                    "nombre_completo": p.get("nombre_completo"),
+                    "caracteristica": c,
+                })
+                break
+    return {"personas_por_caracteristica": out}
+
 def buscar_persona_por_caracteristica_genero(json_data: Dict[str, Any], genero: str) -> Dict[str, Any]:
     """Busca dentro de caracteristicas[].genero."""
     n = normalize_and_clean(genero)

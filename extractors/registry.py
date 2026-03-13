@@ -461,14 +461,18 @@ TOOL_REGISTRY: List[ToolEntry] = [
 
     # ──────── DEPENDENCIAS_VISTAS ────────
     ToolEntry("listar_dependencias", listar_dependencias, 0,
-              "Devuelve TODAS las dependencias vistas.",
-              ["todas las dependencias", "listar dependencias", "dependencias vistas", "organismos dependencias"], "dependencias_vistas"),
+              "Devuelve los organismos/dependencias que tuvieron intervención en el expediente. "
+              "El campo 'organismo_descripcion' contiene el nombre del organismo (ej: 'U.FI.SA.R. - PASO DE LOS LIBRES'). "
+              "Usar cuando se pregunta por qué dependencias, organismos o instituciones pasó o intervino el expediente.",
+              ["todas las dependencias", "listar dependencias", "dependencias vistas", "organismos dependencias",
+               "por que dependencias paso", "que organismos intervinieron", "dependencias del expediente",
+               "por que instituciones paso"], "dependencias_vistas"),
     ToolEntry("buscar_dependencia_por_organismo_codigo", buscar_dependencia_por_organismo_codigo, 1,
               "Filtra dependencias por código de organismo. Argumento: codigo.",
               ["organismo codigo dependencia"], "dependencias_vistas"),
     ToolEntry("buscar_dependencia_por_organismo_descripcion", buscar_dependencia_por_organismo_descripcion, 1,
-              "Filtra dependencias por descripción de organismo. Argumento: desc.",
-              ["organismo descripcion dependencia"], "dependencias_vistas"),
+              "Filtra dependencias por nombre del organismo (organismo_descripcion). Argumento: desc.",
+              ["organismo descripcion dependencia", "nombre organismo dependencia"], "dependencias_vistas"),
     ToolEntry("buscar_dependencia_por_codigo", buscar_dependencia_por_codigo, 1,
               "Filtra dependencias por código. Argumento: codigo.",
               ["dependencia codigo", "codigo dependencia"], "dependencias_vistas"),

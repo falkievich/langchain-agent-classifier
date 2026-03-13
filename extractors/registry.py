@@ -45,9 +45,11 @@ from extractors.personas_legajo import (
     listar_calificaciones_legales_personas,
     listar_relacionados_personas, buscar_relacionado_por_nombre,
     buscar_relacionado_por_tipo, buscar_relacionado_por_rol,
+    listar_abogados_de_personas,
     listar_domicilios_relacionados,
     listar_domicilios_personas, buscar_domicilio_persona_por_clase,
-    buscar_domicilio_persona_por_descripcion, buscar_domicilio_persona_por_relacion_vinculo,
+    buscar_domicilio_persona_por_tipo,
+    buscar_domicilio_persona_por_relacion_vinculo,
 )
 from extractors.abogados_legajo import (
     listar_abogados,
@@ -60,7 +62,7 @@ from extractors.abogados_legajo import (
     buscar_abogados_de_cliente,
     listar_domicilios_representados,
     listar_domicilios_abogados, buscar_domicilio_abogado_por_clase,
-    buscar_domicilio_abogado_por_descripcion,
+    buscar_domicilio_abogado_por_tipo,
 )
 from extractors.funcionarios import (
     listar_funcionarios,
@@ -308,6 +310,13 @@ TOOL_REGISTRY: List[ToolEntry] = [
     ToolEntry("buscar_relacionado_por_rol", buscar_relacionado_por_rol, 1,
               "Filtra relacionados por rol. Argumento: rol.",
               ["relacionado rol", "rol relacionado", "representante legal no letrado"], "personas_legajo"),
+    ToolEntry("listar_abogados_de_personas", listar_abogados_de_personas, 0,
+              "Extrae los abogados/defensores embebidos en personas_legajo[].relacionados. "
+              "Usar con depends_on para obtener los defensores de personas ya filtradas (ej: imputados). "
+              "NO busca en abogados_legajo, sino en los relacionados de cada persona.",
+              ["defensor de persona", "abogado de imputado", "quien defiende", "quien representa a la persona",
+               "abogado del imputado", "defensor del imputado", "abogado de la victima",
+               "quien es el abogado", "abogados de personas"], "personas_legajo"),
 
     # ── Personas → relacionados → domicilios ──
     ToolEntry("listar_domicilios_relacionados", listar_domicilios_relacionados, 0,
@@ -321,9 +330,13 @@ TOOL_REGISTRY: List[ToolEntry] = [
     ToolEntry("buscar_domicilio_persona_por_clase", buscar_domicilio_persona_por_clase, 1,
               "Filtra domicilios de persona por clase (FISICO, ELECTRONICO). Argumento: clase.",
               ["clase domicilio persona", "domicilio fisico persona", "domicilio electronico persona"], "personas_legajo"),
-    ToolEntry("buscar_domicilio_persona_por_descripcion", buscar_domicilio_persona_por_descripcion, 1,
-              "Busca domicilio por descripción (teléfono, email, dirección). Argumento: desc.",
-              ["telefono persona", "email persona", "celular persona", "domicilio descripcion"], "personas_legajo"),
+    ToolEntry("buscar_domicilio_persona_por_tipo", buscar_domicilio_persona_por_tipo, 1,
+              "Busca domicilios de persona buscando el argumento en TODOS los campos del domicilio "
+              "(clase, digital_clase, digital_clase_codigo, empresa, relacion_vinculo, descripcion, etc.). "
+              "Usar cuando se pide el celular, teléfono, email, o cualquier dato de contacto de personas. "
+              "Argumento: valor a buscar (ej: 'celular', 'CEL', 'email', 'ELECTRONICO').",
+              ["celular persona", "telefono persona", "email persona", "tipo contacto persona",
+               "numero celular persona", "numero telefono persona"], "personas_legajo"),
     ToolEntry("buscar_domicilio_persona_por_relacion_vinculo", buscar_domicilio_persona_por_relacion_vinculo, 1,
               "Filtra domicilios por relación del vínculo (PROPIO, HERMANO, TIO). Argumento: relacion.",
               ["relacion vinculo domicilio", "domicilio propio", "domicilio hermano"], "personas_legajo"),
@@ -382,13 +395,17 @@ TOOL_REGISTRY: List[ToolEntry] = [
     # ── Abogados → domicilios ──
     ToolEntry("listar_domicilios_abogados", listar_domicilios_abogados, 0,
               "Devuelve los domicilios de los abogados.",
-              ["domicilios abogados", "direccion abogado", "telefono abogado", "contacto abogado"], "abogados_legajo"),
+              ["domicilios abogados", "direccion abogado", "contacto abogado"], "abogados_legajo"),
     ToolEntry("buscar_domicilio_abogado_por_clase", buscar_domicilio_abogado_por_clase, 1,
               "Filtra domicilios de abogado por clase (FISICO, ELECTRONICO). Argumento: clase.",
               ["clase domicilio abogado"], "abogados_legajo"),
-    ToolEntry("buscar_domicilio_abogado_por_descripcion", buscar_domicilio_abogado_por_descripcion, 1,
-              "Busca domicilio de abogado por descripción. Argumento: desc.",
-              ["telefono abogado", "email abogado", "celular abogado"], "abogados_legajo"),
+    ToolEntry("buscar_domicilio_abogado_por_tipo", buscar_domicilio_abogado_por_tipo, 1,
+              "Busca domicilios de abogado buscando el argumento en TODOS los campos del domicilio "
+              "(clase, digital_clase, digital_clase_codigo, empresa, relacion_vinculo, descripcion, etc.). "
+              "Usar cuando se pide el celular, teléfono, email, o cualquier dato de contacto de abogados. "
+              "Argumento: valor a buscar (ej: 'celular', 'CEL', 'email', 'ELECTRONICO').",
+              ["celular abogado", "telefono abogado", "email abogado", "tipo contacto abogado",
+               "numero celular abogado", "numero telefono abogado"], "abogados_legajo"),
 
     # ──────── FUNCIONARIOS ────────
     ToolEntry("listar_funcionarios", listar_funcionarios, 0,

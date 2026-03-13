@@ -191,14 +191,26 @@ def buscar_domicilio_abogado_por_clase(json_data: Dict[str, Any], clase: str) ->
                 })
     return {"domicilios_abogado_por_clase": out}
 
-def buscar_domicilio_abogado_por_descripcion(json_data: Dict[str, Any], desc: str) -> Dict[str, Any]:
-    n = normalize_and_clean(desc)
+def buscar_domicilio_abogado_por_tipo(json_data: Dict[str, Any], tipo: str) -> Dict[str, Any]:
+    """
+    Busca domicilios de abogado buscando el argumento en TODOS los campos del
+    objeto domicilio (clase, digital_clase, digital_clase_codigo, empresa,
+    empresa_codigo, relacion_vinculo, descripcion, etc.).
+    De esta forma cubre cualquier campo sin importar cuál sea.
+    Ejemplos de uso: "celular", "CEL", "ELECTRONICO", "PROPIO", "Sin especificar".
+    """
+    n = normalize_and_clean(tipo)
     out = []
     for a in _abogados(json_data):
         for dom in (a.get("domicilios") or []):
-            if n in normalize_and_clean(str(dom.get("descripcion", ""))):
+            valores = [
+                normalize_and_clean(str(v))
+                for v in dom.values()
+                if v is not None and not isinstance(v, (dict, list))
+            ]
+            if any(n in v for v in valores):
                 out.append({
                     "nombre_completo": a.get("nombre_completo"),
                     "domicilio": dom,
                 })
-    return {"domicilios_abogado_por_descripcion": out}
+    return {"domicilios_abogado_por_tipo": out}

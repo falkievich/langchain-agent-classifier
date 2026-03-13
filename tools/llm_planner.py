@@ -57,6 +57,37 @@ NO respondas con texto. SOLO devuelve JSON válido.
 TOOLS DISPONIBLES:
 {_TOOL_CATALOG}
 
+MODELO DE DATOS — IMPORTANTE:
+Los datos del expediente tienen DOS fuentes distintas para abogados/defensores:
+  A) abogados_legajo: lista global de abogados del expediente.
+  B) personas_legajo[N].relacionados: abogados EMBEBIDOS dentro de cada persona.
+     Cada relacionado tiene un campo "tipo" que puede ser "abogado" o "persona".
+     Los abogados defensores de imputados/víctimas aparecen AQUÍ, no en abogados_legajo.
+
+MODELO DE DOMICILIOS — IMPORTANTE:
+Cada domicilio tiene estos campos relevantes:
+  - clase: categoría general ("FISICO", "ELECTRONICO")
+  - digital_clase: tipo de contacto en texto ("Celular", "Teléfono", "Email")
+  - digital_clase_codigo: código del tipo ("CEL", "TEL", "EMAIL")
+  - descripcion: el VALOR concreto (el número de teléfono, la dirección, el email)
+
+REGLA DE ORO para buscar por tipo de contacto (celular, teléfono, email):
+  - Usar buscar_domicilio_[persona|abogado]_por_tipo con arg "celular", "telefono", "email", etc.
+    Esta función busca en TODOS los campos del domicilio, cubriendo cualquier variante.
+
+REGLA para consultas de celulares/teléfonos de TODOS (sin filtrar por sección):
+  - Cuando se pide "todos los celulares", "todos los teléfonos", etc., se deben lanzar
+    steps INDEPENDIENTES (sin depends_on) para cada sección relevante:
+    Step 1: buscar_domicilio_persona_por_tipo ["celular"]
+    Step 2: buscar_domicilio_abogado_por_tipo ["celular"]
+    Step 3: listar_domicilios_funcionarios (los funcionarios no tienen digital_clase)
+
+REGLA DE ORO para consultas tipo "quiénes defienden a X" / "abogado del imputado" / "defensor de la víctima":
+  - SIEMPRE usar listar_abogados_de_personas con depends_on al paso que filtró las personas.
+  - NO usar buscar_abogado_por_vinculo_descripcion como respuesta a esas preguntas,
+    ya que esa tool busca en abogados_legajo de forma independiente y puede devolver
+    defensores de otras personas del expediente.
+
 REGLAS DEL PLAN:
 1. Cada step tiene: step_id (entero), tool (nombre exacto), args (lista de argumentos fijos)
 2. Un step puede depender de otro usando depends_on (step_id del paso anterior)
@@ -69,8 +100,18 @@ REGLAS DEL PLAN:
    - Step 2: obtener el dato deseado (ej: listar_domicilios_personas), con depends_on=1
 8. Los args son SIEMPRE strings.
 9. Para filtrar por rol usa buscar_persona_por_rol con args ["victima"], ["imputado"], etc.
-10. Para filtrar abogados por tipo usa buscar_abogado_por_vinculo_descripcion con args ["defensor publico"], etc.
+10. REGLA DE ABOGADOS — distinguir siempre entre consulta genérica y consulta específica:
+    - Consulta GENÉRICA ("los abogados", "todos los defensores", "abogados del caso"):
+      → usar listar_abogados (sin filtro de tipo), para no excluir ningún defensor.
+    - Consulta ESPECÍFICA de tipo ("el defensor público", "los defensores privados"):
+      → usar buscar_abogado_por_vinculo_descripcion con el tipo exacto.
+    NUNCA asumir "defensor publico" cuando la pregunta no especifica el tipo de defensor.
+    Los tipos posibles son: "defensor publico", "defensor privado", y potencialmente otros.
 11. Para filtrar funcionarios por cargo usa buscar_funcionario_por_cargo con args ["fiscal"], ["juez"], etc.
+12. Cuando la consulta pide "quién defiende a [rol]" o "abogado de [rol]" o une dos entidades
+    (ej: "imputados y sus defensores"), siempre encadena:
+    Step 1 → buscar_persona_por_rol([rol])
+    Step 2 → listar_abogados_de_personas(depends_on=1)
 
 ESTRUCTURA DE RESPUESTA:
 {{
@@ -102,6 +143,41 @@ Consulta: "nombre de los abogados defensores públicos"
   {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}}
 ]}}
 
+Consulta: "nombre de los abogados defensores privados"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor privado"]}}
+]}}
+
+Consulta: "quiénes son los abogados?" / "listar todos los defensores" / "abogados del caso"
+{{"steps": [
+  {{"step_id": 1, "tool": "listar_abogados", "args": []}}
+]}}
+
+Consulta: "celular de los abogados defensores" / "teléfono de los abogados" / "domicilios de los abogados"
+{{"steps": [
+  {{"step_id": 1, "tool": "listar_abogados", "args": []}},
+  {{"step_id": 2, "tool": "listar_domicilios_abogados", "args": [], "depends_on": 1, "output_field": "domicilios"}}
+]}}
+
+Consulta: "celular del defensor público" / "domicilio del defensor privado"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}},
+  {{"step_id": 2, "tool": "listar_domicilios_abogados", "args": [], "depends_on": 1, "output_field": "domicilios"}}
+]}}
+
+Consulta: "todos los números de celular del expediente" / "dame todos los celulares y a quién pertenecen"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_domicilio_persona_por_tipo", "args": ["celular"]}},
+  {{"step_id": 2, "tool": "buscar_domicilio_abogado_por_tipo", "args": ["celular"]}},
+  {{"step_id": 3, "tool": "listar_domicilios_funcionarios", "args": []}}
+]}}
+
+Consulta: "celular de los imputados" / "teléfono de las víctimas"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
+  {{"step_id": 2, "tool": "buscar_domicilio_persona_por_tipo", "args": ["celular"], "depends_on": 1}}
+]}}
+
 Consulta: "a quién representa el defensor público?"
 {{"steps": [
   {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}},
@@ -113,6 +189,24 @@ Consulta: "características de los imputados detenidos"
   {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
   {{"step_id": 2, "tool": "buscar_persona_por_estado_detencion", "args": ["true"], "depends_on": 1}},
   {{"step_id": 3, "tool": "listar_caracteristicas_personas", "args": [], "depends_on": 2, "output_field": "caracteristicas"}}
+]}}
+
+Consulta: "quiénes son los imputados y quiénes los defienden?"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
+  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
+]}}
+
+Consulta: "abogado del imputado" / "quién defiende al imputado" / "defensor del imputado"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
+  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
+]}}
+
+Consulta: "abogado de la víctima" / "quién representa a la víctima"
+{{"steps": [
+  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["victima"]}},
+  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
 ]}}
 
 SOLO devuelve JSON. Sin texto, sin markdown, sin backticks."""

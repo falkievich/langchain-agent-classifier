@@ -281,6 +281,28 @@ def buscar_relacionado_por_rol(json_data: Dict[str, Any], rol: str) -> Dict[str,
 #  Nivel 3 – Sub-nodo: relacionados.domicilios
 # ═══════════════════════════════════════════════════════════════
 
+def listar_abogados_de_personas(json_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extrae los relacionados de tipo 'abogado' de cada persona.
+    Útil cuando se quiere saber quién defiende/representa a personas ya filtradas
+    (ej: imputados, víctimas) sin necesidad de cruzar con abogados_legajo.
+    Los abogados defensores aparecen embebidos en personas_legajo[].relacionados.
+    """
+    out = []
+    for p in _personas(json_data):
+        abogados = [
+            rel for rel in (p.get("relacionados") or [])
+            if normalize_and_clean(str(rel.get("tipo", ""))) == "abogado"
+        ]
+        if abogados:
+            out.append({
+                "persona_nombre": p.get("nombre_completo"),
+                "persona_rol": p.get("rol", []),
+                "abogados": abogados,
+            })
+    return {"abogados_de_personas": out}
+
+
 def listar_domicilios_relacionados(json_data: Dict[str, Any]) -> Dict[str, Any]:
     """Devuelve los domicilios de todos los relacionados."""
     out = []
@@ -324,18 +346,29 @@ def buscar_domicilio_persona_por_clase(json_data: Dict[str, Any], clase: str) ->
                 })
     return {"domicilios_persona_por_clase": out}
 
-def buscar_domicilio_persona_por_descripcion(json_data: Dict[str, Any], desc: str) -> Dict[str, Any]:
-    """Busca en el campo 'descripcion' (teléfono, email, dirección, etc.)."""
-    n = normalize_and_clean(desc)
+def buscar_domicilio_persona_por_tipo(json_data: Dict[str, Any], tipo: str) -> Dict[str, Any]:
+    """
+    Busca domicilios de persona buscando el argumento en TODOS los campos del
+    objeto domicilio (clase, digital_clase, digital_clase_codigo, empresa,
+    empresa_codigo, relacion_vinculo, descripcion, etc.).
+    De esta forma cubre cualquier campo sin importar cuál sea.
+    Ejemplos de uso: "celular", "CEL", "ELECTRONICO", "PROPIO", "Sin especificar".
+    """
+    n = normalize_and_clean(tipo)
     out = []
     for p in _personas(json_data):
         for dom in (p.get("domicilios") or []):
-            if n in normalize_and_clean(str(dom.get("descripcion", ""))):
+            valores = [
+                normalize_and_clean(str(v))
+                for v in dom.values()
+                if v is not None and not isinstance(v, (dict, list))
+            ]
+            if any(n in v for v in valores):
                 out.append({
                     "nombre_completo": p.get("nombre_completo"),
                     "domicilio": dom,
                 })
-    return {"domicilios_persona_por_descripcion": out}
+    return {"domicilios_persona_por_tipo": out}
 
 def buscar_domicilio_persona_por_relacion_vinculo(json_data: Dict[str, Any], relacion: str) -> Dict[str, Any]:
     """Filtra domicilios por relacion_vinculo (PROPIO, HERMANO, TIO, etc.)."""

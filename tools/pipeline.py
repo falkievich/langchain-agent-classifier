@@ -3,16 +3,17 @@ tools/pipeline.py
 ─────────────────
 Pipeline único:
 
-  LLM Planner (genera steps) → Executor Secuencial (determinístico) → JSON
+  LLM Planner (genera steps semánticos) → Query Executor (determinístico) → JSON
 
   El LLM SIEMPRE genera el plan de ejecución:
-    - Qué tools usar
-    - En qué orden
-    - Qué dependencias hay entre steps
+    - Qué funciones semánticas usar
+    - Con qué filtros
+    - En qué orden y con qué dependencias
 
   La ejecución es SIEMPRE determinística:
-    - Las tools son funciones puras sobre el JSON
-    - El encadenamiento de resultados es lógica fija en el executor
+    - Las funciones son mapeos de paths sobre el JSON
+    - Los filtros son comparaciones sobre campos
+    - El encadenamiento de resultados es lógica fija en el query_executor
 
   Fallback:
     - Si el LLM falla o devuelve un plan inválido → router por keywords
@@ -32,12 +33,12 @@ async def run_pipeline(
     """
     Pipeline principal. El LLM siempre genera el plan.
 
-    1. LLM Planner genera steps secuenciales con dependencias.
-    2. Executor ejecuta determinísticamente.
+    1. LLM Planner genera steps con funciones semánticas + filtros.
+    2. Query Executor ejecuta determinísticamente sobre el JSON.
     3. Si el LLM falla → fallback al router por keywords.
 
     Returns:
-        JSON string con bundle + metadata del plan generado.
+        JSON string con resultados + metadata del plan generado.
     """
     # 1. LLM genera el plan
     plan = generate_plan_with_llm(user_prompt)
@@ -47,29 +48,30 @@ async def run_pipeline(
         plan = route_query(user_prompt)
         plan_type = "fallback_deterministic"
     else:
-        plan_type = "llm_sequential"
+        plan_type = "llm_semantic"
 
     # 3. Ejecutar
-    bundle = await execute_plan(plan, json_data)
+    result = await execute_plan(plan, json_data)
 
     # 4. Resultado con metadata del plan
-    result: Dict[str, Any] = {
-        "bundle": bundle,
+    output: Dict[str, Any] = {
         "plan_type": plan_type,
-    }
-    if plan.steps:
-        result["plan"] = [
+        "plan": [
             {
                 "step_id": s.step_id,
-                "tool": s.tool,
-                "args": s.args,
+                "function": s.function,
+                "filters": [
+                    {"field": f.field, "op": f.op, "value": f.value}
+                    for f in s.filters
+                ],
                 "depends_on": s.depends_on,
-                "output_field": s.output_field,
             }
             for s in plan.steps
-        ]
+        ],
+        **result,  # steps, total_paths_used, total_records
+    }
 
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return json.dumps(output, ensure_ascii=False, indent=2)
 
 
 # ── Alias para compatibilidad con código existente ──────────────

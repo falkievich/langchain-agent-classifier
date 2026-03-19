@@ -1,26 +1,20 @@
 """
 tools/llm_planner.py
 ────────────────────
-Planner LLM mínimo: genera un plan SECUENCIAL con dependencias entre pasos.
+Planner LLM: genera un plan de funciones semánticas.
 
 El LLM recibe:
   - La consulta del usuario
-  - El catálogo de tools disponibles (nombres + descripciones)
+  - El catálogo de funciones semánticas (nombre + descripción + filtros)
 
-Y devuelve un plan JSON con steps que se encadenan:
-
-Ejemplo para "domicilios de las víctimas":
+Y devuelve un plan JSON con steps:
   {
     "steps": [
-      {"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["victima"]},
-      {"step_id": 2, "tool": "listar_domicilios_personas", "args": [], "depends_on": 1, "output_field": "domicilios"}
+      {"step_id": 1, "function": "get_personas",
+       "filters": [{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}]
+      }
     ]
   }
-
-Esto significa:
-  1. Ejecutar buscar_persona_por_rol("victima") → obtener personas víctima
-  2. Ejecutar listar_domicilios_personas PERO filtrando solo sobre las personas del paso 1
-     y devolviendo solo el sub-campo "domicilios"
 
 IMPORTANTE: El LLM SOLO genera el plan. No ejecuta nada. La ejecución es determinística.
 """
@@ -28,191 +22,167 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from schema.call_and_plan_schema import Plan, Step
-from extractors.registry import TOOL_REGISTRY, TOOL_BY_NAME
+from schema.call_and_plan_schema import Plan, Step, StepFilter
+from schema.function_catalog import FUNCTION_CATALOG
+
 
 # ═══════════════════════════════════════════════════════════════
-#  Catálogo de tools para el prompt
+#  Catálogo de funciones para el prompt (se genera dinámicamente)
 # ═══════════════════════════════════════════════════════════════
 
-def _build_tool_catalog() -> str:
-    """Genera el catálogo de tools disponibles para incluir en el system prompt."""
+def _build_function_catalog() -> str:
+    """Genera el catálogo de funciones disponibles para incluir en el system prompt."""
     lines = []
-    for t in TOOL_REGISTRY:
-        args_desc = f"(json_data, {t.keywords[0] if t.keywords else 'arg'})" if t.args > 0 else "(json_data)"
-        lines.append(f"- {t.name}{args_desc}: {t.description} [sección: {t.section}]")
-    return "\n".join(lines)
+    for fname, meta in FUNCTION_CATALOG.items():
+        desc = meta["description"]
+        filters = meta.get("filters", {})
+        filters_str = ""
+        if filters:
+            filter_items = ", ".join(f"{k} ({v})" for k, v in filters.items())
+            filters_str = f"\n    Filtros: {filter_items}"
+        lines.append(f"• {fname}\n    {desc}{filters_str}")
+    return "\n\n".join(lines)
 
 
-_TOOL_CATALOG = _build_tool_catalog()
+_FUNCTION_CATALOG_TEXT = _build_function_catalog()
+
 
 # ═══════════════════════════════════════════════════════════════
 #  System prompt
 # ═══════════════════════════════════════════════════════════════
 
 _SYSTEM_PROMPT = f"""Eres un planificador de consultas sobre expedientes judiciales argentinos.
-Tu ÚNICA tarea es generar un plan de ejecución en formato JSON.
-NO respondas con texto. SOLO devuelve JSON válido.
+Devuelve SOLO JSON válido. Sin texto adicional, sin markdown, sin backticks.
 
-TOOLS DISPONIBLES:
-{_TOOL_CATALOG}
+FUNCIONES DISPONIBLES:
+{_FUNCTION_CATALOG_TEXT}
 
-MODELO DE DATOS — IMPORTANTE:
-Los datos del expediente tienen DOS fuentes distintas para abogados/defensores:
-  A) abogados_legajo: lista global de abogados del expediente.
-  B) personas_legajo[N].relacionados: abogados EMBEBIDOS dentro de cada persona.
-     Cada relacionado tiene un campo "tipo" que puede ser "abogado" o "persona".
-     Los abogados defensores de imputados/víctimas aparecen AQUÍ, no en abogados_legajo.
+REGLAS:
+1. Elige la(s) función(es) que mejor responden la consulta.
+2. Agrega filtros solo si la consulta especifica una condición (rol, nombre, tipo de contacto).
+3. Para preguntas simples: 1 función, 0-1 filtros.
+4. Para preguntas compuestas que involucran múltiples entidades independientes: múltiples funciones en paralelo (sin depends_on).
+5. No encadenes steps si la respuesta está en una sola función.
+6. depends_on SOLO cuando necesitas el resultado del step anterior para filtrar el siguiente.
+7. Los values en filters son siempre strings.
+8. Operadores: eq (igual exacto) | contains (contiene, case-insensitive) | gte (>=) | lte (<=)
 
-MODELO DE DOMICILIOS — IMPORTANTE:
-Cada domicilio tiene estos campos relevantes:
-  - clase: categoría general ("FISICO", "ELECTRONICO")
-  - digital_clase: tipo de contacto en texto ("Celular", "Teléfono", "Email")
-  - digital_clase_codigo: código del tipo ("CEL", "TEL", "EMAIL")
-  - descripcion: el VALOR concreto (el número de teléfono, la dirección, el email)
+REGLA ESPECIAL — "abogado de la víctima / del imputado":
+  El abogado de una persona está en personas_legajo.relacionados.
+  Usar get_abogados_de_persona con filtro vinculos.descripcion_vinculo.
+  NO usar get_abogados — esa función trae abogados globales, no embebidos en personas.
 
-REGLA DE ORO para buscar por tipo de contacto (celular, teléfono, email):
-  - Usar buscar_domicilio_[persona|abogado]_por_tipo con arg "celular", "telefono", "email", etc.
-    Esta función busca en TODOS los campos del domicilio, cubriendo cualquier variante.
+REGLA ESPECIAL — "celular/teléfono/email del abogado de la víctima":
+  Usar get_contactos_abogados_de_persona con filtro vinculos.descripcion_vinculo + domicilios.digital_clase.
 
-REGLA para consultas de celulares/teléfonos de TODOS (sin filtrar por sección):
-  - Cuando se pide "todos los celulares", "todos los teléfonos", etc., se deben lanzar
-    steps INDEPENDIENTES (sin depends_on) para cada sección relevante:
-    Step 1: buscar_domicilio_persona_por_tipo ["celular"]
-    Step 2: buscar_domicilio_abogado_por_tipo ["celular"]
-    Step 3: listar_domicilios_funcionarios (los funcionarios no tienen digital_clase)
+REGLA ESPECIAL — "todos los celulares del expediente":
+  Lanzar steps INDEPENDIENTES (sin depends_on) para:
+  - get_domicilios_personas (filtro domicilios.digital_clase = Celular)
+  - get_domicilios_abogados (filtro domicilios.digital_clase = Celular)
+  - get_funcionarios (sin filtro, los funcionarios solo tienen email)
 
-REGLA DE ORO para consultas tipo "quiénes defienden a X" / "abogado del imputado" / "defensor de la víctima":
-  - SIEMPRE usar listar_abogados_de_personas con depends_on al paso que filtró las personas.
-  - NO usar buscar_abogado_por_vinculo_descripcion como respuesta a esas preguntas,
-    ya que esa tool busca en abogados_legajo de forma independiente y puede devolver
-    defensores de otras personas del expediente.
-
-REGLAS DEL PLAN:
-1. Cada step tiene: step_id (entero), tool (nombre exacto), args (lista de argumentos fijos)
-2. Un step puede depender de otro usando depends_on (step_id del paso anterior)
-3. Si un step depende de otro, su resultado se FILTRARÁ usando los resultados del paso anterior
-4. output_field indica qué sub-campo devolver del resultado (ej: "domicilios", "vinculos", "caracteristicas")
-5. Usa el MÍNIMO de steps necesarios. No agregues pasos innecesarios.
-6. Si la consulta es simple (sin condiciones), usa UN solo step.
-7. Si hay condiciones (ej: "de las víctimas", "del imputado", "de los detenidos"), usa DOS steps:
-   - Step 1: filtrar las entidades (ej: buscar_persona_por_rol con "victima")
-   - Step 2: obtener el dato deseado (ej: listar_domicilios_personas), con depends_on=1
-8. Los args son SIEMPRE strings.
-9. Para filtrar por rol usa buscar_persona_por_rol con args ["victima"], ["imputado"], etc.
-10. REGLA DE ABOGADOS — distinguir siempre entre consulta genérica y consulta específica:
-    - Consulta GENÉRICA ("los abogados", "todos los defensores", "abogados del caso"):
-      → usar listar_abogados (sin filtro de tipo), para no excluir ningún defensor.
-    - Consulta ESPECÍFICA de tipo ("el defensor público", "los defensores privados"):
-      → usar buscar_abogado_por_vinculo_descripcion con el tipo exacto.
-    NUNCA asumir "defensor publico" cuando la pregunta no especifica el tipo de defensor.
-    Los tipos posibles son: "defensor publico", "defensor privado", y potencialmente otros.
-11. Para filtrar funcionarios por cargo usa buscar_funcionario_por_cargo con args ["fiscal"], ["juez"], etc.
-12. Cuando la consulta pide "quién defiende a [rol]" o "abogado de [rol]" o une dos entidades
-    (ej: "imputados y sus defensores"), siempre encadena:
-    Step 1 → buscar_persona_por_rol([rol])
-    Step 2 → listar_abogados_de_personas(depends_on=1)
-
-ESTRUCTURA DE RESPUESTA:
+ESTRUCTURA:
 {{
   "steps": [
-    {{"step_id": 1, "tool": "nombre_tool", "args": ["arg1"]}},
-    {{"step_id": 2, "tool": "nombre_tool", "args": [], "depends_on": 1, "output_field": "campo"}}
+    {{
+      "step_id": 1,
+      "function": "nombre_funcion",
+      "filters": [
+        {{"field": "campo", "op": "operador", "value": "valor"}}
+      ]
+    }}
   ]
 }}
 
 EJEMPLOS:
 
-Consulta: "cuál es el CUIJ?"
-{{"steps": [{{"step_id": 1, "tool": "obtener_cuij", "args": []}}]}}
+"DNI del abogado Thiago"
+{{"steps": [{{"step_id": 1, "function": "get_abogados",
+  "filters": [{{"field": "nombre", "op": "contains", "value": "Thiago"}}]}}]}}
 
-Consulta: "domicilios de las víctimas"
+"información del expediente"
+{{"steps": [{{"step_id": 1, "function": "get_cabecera", "filters": []}}]}}
+
+"traeme las víctimas"
+{{"steps": [{{"step_id": 1, "function": "get_personas",
+  "filters": [{{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}}]}}]}}
+
+"mostrame todos los abogados"
+{{"steps": [{{"step_id": 1, "function": "get_abogados", "filters": []}}]}}
+
+"ficha del fiscal"
+{{"steps": [{{"step_id": 1, "function": "get_funcionarios",
+  "filters": [{{"field": "cargo", "op": "contains", "value": "fiscal"}}]}}]}}
+
+"DNI del abogado de la víctima"
+{{"steps": [{{"step_id": 1, "function": "get_abogados_de_persona",
+  "filters": [{{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}}]}}]}}
+
+"celular del abogado de la víctima"
+{{"steps": [{{"step_id": 1, "function": "get_contactos_abogados_de_persona",
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}},
+    {{"field": "relacionados.domicilios.digital_clase", "op": "contains", "value": "Celular"}}
+  ]}}]}}
+
+"celular del defensor público"
+{{"steps": [{{"step_id": 1, "function": "get_domicilios_abogados",
+  "filters": [
+    {{"field": "vinculo_descripcion", "op": "contains", "value": "defensor publico"}},
+    {{"field": "domicilios.digital_clase", "op": "contains", "value": "Celular"}}
+  ]}}]}}
+
+"a quién representa el defensor público?"
+{{"steps": [{{"step_id": 1, "function": "get_representados_abogados",
+  "filters": [{{"field": "vinculo_descripcion", "op": "contains", "value": "defensor publico"}}]}}]}}
+
+"domicilios de las víctimas"
+{{"steps": [{{"step_id": 1, "function": "get_domicilios_personas",
+  "filters": [{{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}}]}}]}}
+
+"características de los imputados detenidos"
+{{"steps": [{{"step_id": 1, "function": "get_caracteristicas_personas",
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "imputado"}},
+    {{"field": "es_detenido", "op": "eq", "value": "true"}}
+  ]}}]}}
+
+"todos los celulares del expediente"
 {{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["victima"]}},
-  {{"step_id": 2, "tool": "listar_domicilios_personas", "args": [], "depends_on": 1, "output_field": "domicilios"}}
+  {{"step_id": 1, "function": "get_domicilios_personas",
+   "filters": [{{"field": "domicilios.digital_clase", "op": "contains", "value": "Celular"}}]}},
+  {{"step_id": 2, "function": "get_domicilios_abogados",
+   "filters": [{{"field": "domicilios.digital_clase", "op": "contains", "value": "Celular"}}]}},
+  {{"step_id": 3, "function": "get_funcionarios", "filters": []}}
 ]}}
 
-Consulta: "teléfono del fiscal"
+"domicilio del representado del defensor público"
 {{"steps": [
-  {{"step_id": 1, "tool": "buscar_funcionario_por_cargo", "args": ["fiscal"]}},
-  {{"step_id": 2, "tool": "listar_domicilios_funcionarios", "args": [], "depends_on": 1, "output_field": "domicilios"}}
+  {{"step_id": 1, "function": "get_representados_abogados",
+   "filters": [{{"field": "vinculo_descripcion", "op": "contains", "value": "defensor publico"}}]}},
+  {{"step_id": 2, "function": "get_domicilios_personas", "filters": [], "depends_on": 1}}
 ]}}
 
-Consulta: "nombre de los abogados defensores públicos"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}}
-]}}
+"cuál es el CUIJ?"
+{{"steps": [{{"step_id": 1, "function": "get_cabecera", "filters": []}}]}}
 
-Consulta: "nombre de los abogados defensores privados"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor privado"]}}
-]}}
+"descripción de la causa"
+{{"steps": [{{"step_id": 1, "function": "get_causa", "filters": []}}]}}
 
-Consulta: "quiénes son los abogados?" / "listar todos los defensores" / "abogados del caso"
-{{"steps": [
-  {{"step_id": 1, "tool": "listar_abogados", "args": []}}
-]}}
+"delitos del expediente"
+{{"steps": [{{"step_id": 1, "function": "get_delitos", "filters": []}}]}}
 
-Consulta: "celular de los abogados defensores" / "teléfono de los abogados" / "domicilios de los abogados"
-{{"steps": [
-  {{"step_id": 1, "tool": "listar_abogados", "args": []}},
-  {{"step_id": 2, "tool": "listar_domicilios_abogados", "args": [], "depends_on": 1, "output_field": "domicilios"}}
-]}}
+"radicaciones del expediente"
+{{"steps": [{{"step_id": 1, "function": "get_radicaciones", "filters": []}}]}}
 
-Consulta: "celular del defensor público" / "domicilio del defensor privado"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}},
-  {{"step_id": 2, "tool": "listar_domicilios_abogados", "args": [], "depends_on": 1, "output_field": "domicilios"}}
-]}}
+"dependencias que intervinieron"
+{{"steps": [{{"step_id": 1, "function": "get_dependencias", "filters": []}}]}}
 
-Consulta: "todos los números de celular del expediente" / "dame todos los celulares y a quién pertenecen"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_domicilio_persona_por_tipo", "args": ["celular"]}},
-  {{"step_id": 2, "tool": "buscar_domicilio_abogado_por_tipo", "args": ["celular"]}},
-  {{"step_id": 3, "tool": "listar_domicilios_funcionarios", "args": []}}
-]}}
-
-Consulta: "celular de los imputados" / "teléfono de las víctimas"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
-  {{"step_id": 2, "tool": "buscar_domicilio_persona_por_tipo", "args": ["celular"], "depends_on": 1}}
-]}}
-
-Consulta: "a quién representa el defensor público?"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_abogado_por_vinculo_descripcion", "args": ["defensor publico"]}},
-  {{"step_id": 2, "tool": "listar_representados", "args": [], "depends_on": 1}}
-]}}
-
-Consulta: "características de los imputados detenidos"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
-  {{"step_id": 2, "tool": "buscar_persona_por_estado_detencion", "args": ["true"], "depends_on": 1}},
-  {{"step_id": 3, "tool": "listar_caracteristicas_personas", "args": [], "depends_on": 2, "output_field": "caracteristicas"}}
-]}}
-
-Consulta: "quiénes son los imputados y quiénes los defienden?"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
-  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
-]}}
-
-Consulta: "abogado del imputado" / "quién defiende al imputado" / "defensor del imputado"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["imputado"]}},
-  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
-]}}
-
-Consulta: "abogado de la víctima" / "quién representa a la víctima"
-{{"steps": [
-  {{"step_id": 1, "tool": "buscar_persona_por_rol", "args": ["victima"]}},
-  {{"step_id": 2, "tool": "listar_abogados_de_personas", "args": [], "depends_on": 1}}
-]}}
-
-SOLO devuelve JSON. Sin texto, sin markdown, sin backticks."""
+SOLO devuelve JSON."""
 
 
 _USER_TEMPLATE = "Consulta: {prompt}"
+
 
 # ═══════════════════════════════════════════════════════════════
 #  Parsing de la respuesta del LLM
@@ -224,6 +194,7 @@ _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 def _parse_llm_json(raw: str) -> Dict[str, Any]:
     """Intenta parsear JSON de la respuesta del LLM."""
+    # 1. Bloques de código
     m = _JSON_BLOCK_RE.search(raw)
     if m:
         try:
@@ -231,6 +202,7 @@ def _parse_llm_json(raw: str) -> Dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
+    # 2. Primer JSON object
     m = _JSON_OBJECT_RE.search(raw)
     if m:
         try:
@@ -238,6 +210,7 @@ def _parse_llm_json(raw: str) -> Dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
+    # 3. Directo
     try:
         return json.loads(raw.strip())
     except json.JSONDecodeError:
@@ -245,19 +218,27 @@ def _parse_llm_json(raw: str) -> Dict[str, Any]:
 
 
 def _validate_step(step_dict: Dict[str, Any]) -> Optional[Step]:
-    """Valida que un step tenga tool válida y lo construye."""
-    tool_name = step_dict.get("tool", "")
-    if tool_name not in TOOL_BY_NAME:
-        print(f"[llm_planner] Tool desconocida: {tool_name}")
+    """Valida que un step tenga función válida y lo construye."""
+    func_name = step_dict.get("function", "")
+    if func_name not in FUNCTION_CATALOG:
+        print(f"[llm_planner] Función desconocida: {func_name}")
         return None
+
+    # Parsear filtros
+    filters = []
+    for f in step_dict.get("filters", []):
+        if isinstance(f, dict) and "field" in f and "value" in f:
+            filters.append(StepFilter(
+                field=f["field"],
+                op=f.get("op", "contains"),
+                value=str(f["value"]),
+            ))
 
     return Step(
         step_id=step_dict.get("step_id", 0),
-        tool=tool_name,
-        args=[str(a) for a in step_dict.get("args", [])],
+        function=func_name,
+        filters=filters,
         depends_on=step_dict.get("depends_on"),
-        extract_field=step_dict.get("extract_field"),
-        output_field=step_dict.get("output_field"),
     )
 
 
@@ -267,15 +248,10 @@ def _validate_step(step_dict: Dict[str, Any]) -> Optional[Step]:
 
 def generate_plan_with_llm(user_prompt: str) -> Plan:
     """
-    Usa el LLM para generar un plan de ejecución secuencial con dependencias.
-    
-    El LLM decide:
-    - Qué tools ejecutar
-    - En qué orden
-    - Qué dependencias hay entre pasos
-    
+    Usa el LLM para generar un plan de funciones semánticas.
+
     Returns:
-        Plan con steps secuenciales.
+        Plan con steps semánticos.
     """
     from classes.custom_llm_classes import CustomOpenWebLLM
     llm = CustomOpenWebLLM()
@@ -289,13 +265,12 @@ def generate_plan_with_llm(user_prompt: str) -> Plan:
         raw_response = llm._call(prompt=full_prompt, stop=None)
     except Exception as e:
         print(f"[llm_planner] LLM error: {e}")
-        # Fallback: plan vacío, el pipeline usará el router determinístico
-        return Plan(calls=[], steps=[])
+        return Plan(steps=[])
 
     parsed = _parse_llm_json(raw_response)
     if not parsed:
         print(f"[llm_planner] No se pudo parsear: {raw_response[:300]}")
-        return Plan(calls=[], steps=[])
+        return Plan(steps=[])
 
     # Construir steps
     steps = []
@@ -307,7 +282,7 @@ def generate_plan_with_llm(user_prompt: str) -> Plan:
                 steps.append(step)
 
     if not steps:
-        print(f"[llm_planner] Plan sin steps válidos")
-        return Plan(calls=[], steps=[])
+        print("[llm_planner] Plan sin steps válidos")
+        return Plan(steps=[])
 
-    return Plan(calls=[], steps=steps)
+    return Plan(steps=steps)

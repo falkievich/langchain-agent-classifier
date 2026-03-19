@@ -32,11 +32,25 @@ FINALIZER_USER = (
 )
 
 
-def finalize_with_llm(user_prompt: str, bundle: List[Dict[str, Any]]) -> str:
+def finalize_with_llm(user_prompt: str, result: Dict[str, Any]) -> str:
     """
-    Usa el LLM para convertir el bundle de resultados en lenguaje natural.
+    Usa el LLM para convertir el resultado de la ejecución en lenguaje natural.
+    
+    Args:
+        user_prompt: consulta original del usuario.
+        result: resultado del execute_plan (con steps, records, paths_used).
     """
-    bundle_json = json.dumps(bundle, ensure_ascii=False, indent=2)
+    # Extraer solo los records de cada step para el LLM
+    records_summary = []
+    for step in result.get("steps", []):
+        records_summary.append({
+            "function": step.get("function", ""),
+            "domain": step.get("domain", ""),
+            "record_count": step.get("record_count", 0),
+            "records": step.get("records", []),
+        })
+
+    bundle_json = json.dumps(records_summary, ensure_ascii=False, indent=2)
 
     # Limitar tamaño para no exceder contexto del modelo
     if len(bundle_json) > 15000:

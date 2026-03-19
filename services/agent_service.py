@@ -1,3 +1,9 @@
+"""
+services/agent_service.py
+─────────────────────────
+Servicio principal del agente.
+Pipeline: LLM Planner → Query Executor (determinístico) → Resultado JSON.
+"""
 from typing import Any, Dict
 from tools.pipeline import run_pipeline
 
@@ -6,8 +12,8 @@ async def generate_agent_response(user_prompt: str, json_data: Dict[str, Any]) -
     """
     Pipeline principal.
 
-    El LLM siempre genera el plan (qué tools, qué orden, qué dependencias).
-    La ejecución de las tools es siempre determinística.
+    El LLM genera el plan (qué funciones semánticas, con qué filtros).
+    La ejecución sobre el JSON es siempre determinística.
     Si el LLM falla → fallback al router por keywords.
     """
     try:
@@ -18,6 +24,6 @@ async def generate_agent_response(user_prompt: str, json_data: Dict[str, Any]) -
         raise
 
 
-# Aliases para no romper código existente que importe estas funciones
+# Aliases para compatibilidad
 generate_hybrid_response = generate_agent_response
 generate_smart_response = generate_agent_response

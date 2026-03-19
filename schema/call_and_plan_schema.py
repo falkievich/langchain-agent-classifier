@@ -1,42 +1,44 @@
+"""
+schema/call_and_plan_schema.py
+──────────────────────────────
+Modelos Pydantic para el plan de ejecución.
+
+Enfoque: Funciones Semánticas.
+El LLM elige función(es) + filtros → el backend ejecuta determinísticamente.
+"""
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 
-# -------- Schema/Models --------
-# Modelos Pydantic que definen el contrato del Planner:
-# - Call: nombre de tool + args posicionales.
-# - Step: un paso del plan que puede tener dependencias de pasos anteriores.
-# - Plan: lista de Calls (paralelas) O lista de Steps (secuenciales con dependencias).
 
-class Call(BaseModel):
-    """Una invocación a tool con argumentos posicionales."""
-    model_config = ConfigDict(extra='ignore')
+class StepFilter(BaseModel):
+    """Un filtro a aplicar sobre los datos del dominio."""
+    model_config = ConfigDict(extra="ignore")
 
-    tool: str = Field(..., description="Nombre exacto de la tool registrada")
-    args: List[Any] = Field(default_factory=list, description="Argumentos posicionales")
+    field: str = Field(..., description="Campo por el cual filtrar")
+    op: str = Field(default="contains", description="Operador: 'eq', 'contains', 'gte', 'lte'")
+    value: str = Field(..., description="Valor a comparar (siempre string)")
 
 
 class Step(BaseModel):
     """
-    Un paso del plan secuencial.
-    
-    Cada step tiene un id, una tool a ejecutar, y opcionalmente:
-    - depends_on: id del step anterior del cual obtener datos
-    - extract_field: campo a extraer del resultado del step anterior para usar como argumento
-    - output_field: sub-campo del resultado a devolver (ej: "domicilios")
+    Un paso del plan semántico.
+
+    Cada step selecciona UNA función semántica con filtros opcionales.
+    Los steps pueden encadenarse con depends_on.
     """
-    model_config = ConfigDict(extra='ignore')
+    model_config = ConfigDict(extra="ignore")
 
     step_id: int = Field(..., description="ID numérico del paso (1, 2, 3...)")
-    tool: str = Field(..., description="Nombre exacto de la tool registrada")
-    args: List[Any] = Field(default_factory=list, description="Argumentos fijos (si los hay)")
-    depends_on: Optional[int] = Field(default=None, description="ID del step del que depende")
-    extract_field: Optional[str] = Field(default=None, description="Campo a extraer del resultado del step anterior para usar como argumento")
-    output_field: Optional[str] = Field(default=None, description="Sub-campo del resultado a devolver como salida de este step")
+    function: str = Field(..., description="Nombre de la función semántica")
+    filters: List[StepFilter] = Field(default_factory=list, description="Filtros a aplicar")
+    depends_on: Optional[int] = Field(
+        default=None,
+        description="ID del step del que depende (el resultado del padre filtra el hijo)"
+    )
 
 
 class Plan(BaseModel):
-    """Plan ejecutable: secuencia de llamadas (orden preservado para el bundle)."""
-    model_config = ConfigDict(extra='ignore')
+    """Plan ejecutable: secuencia de steps semánticos."""
+    model_config = ConfigDict(extra="ignore")
 
-    calls: List[Call] = Field(default_factory=list)
-    steps: List[Step] = Field(default_factory=list, description="Pasos secuenciales con dependencias (alternativa a calls)")
+    steps: List[Step] = Field(default_factory=list, description="Pasos del plan")

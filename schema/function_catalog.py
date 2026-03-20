@@ -52,17 +52,23 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
         "description": (
             "Obtiene los domicilios y contactos (celular, teléfono, email, domicilio físico) "
             "de las personas del expediente. "
-            "Usar para: domicilios de víctimas, celulares de imputados, emails de personas."
+            "Usar para: domicilios de víctimas, celulares de imputados, emails de personas, "
+            "filtrar personas que viven en una provincia/ciudad/municipio determinada."
         ),
         "filters": {
-            "vinculos.descripcion_vinculo": "Rol procesal: 'victima', 'imputado', 'actor', 'demandado'",
-            "vinculos.codigo_vinculo":      "Código del rol: 'VIC', 'IMP', 'ACT', 'DEM'",
-            "domicilios.digital_clase":     "Tipo contacto: 'Celular', 'Teléfono', 'Email'",
-            "domicilios.digital_clase_codigo": "Código contacto: 'CEL', 'TEL', 'EMAIL'",
-            "domicilios.clase":             "Clase: 'FISICO', 'ELECTRONICO'",
-            "nombre":                       "Nombre de la persona",
-            "nombre_completo":              "Nombre completo",
-            "numero_documento":             "DNI",
+            "vinculos.descripcion_vinculo":       "Rol procesal: 'victima', 'imputado', 'actor', 'demandado'",
+            "vinculos.codigo_vinculo":            "Código del rol: 'VIC', 'IMP', 'ACT', 'DEM'",
+            "domicilios.clase":                   "Tipo de domicilio: 'FISICO' (dirección) | 'ELECTRONICO' (contacto digital)",
+            "domicilios.digital_clase":           "Tipo de contacto digital: 'Celular' | 'Teléfono' | 'Email'",
+            "domicilios.digital_clase_codigo":    "Código contacto digital: 'CEL' | 'TEL' | 'EMAIL'",
+            "domicilios.domicilio.provincia":     "Provincia del domicilio físico (ej: 'CORRIENTES', 'BUENOS AIRES')",
+            "domicilios.domicilio.ciudad":        "Ciudad del domicilio físico (ej: 'CAPITAL', 'MERCEDES')",
+            "domicilios.domicilio.municipio":     "Municipio del domicilio físico",
+            "domicilios.domicilio.calle":         "Calle del domicilio físico (búsqueda parcial con op=contains)",
+            "domicilios.domicilio.cpostal":       "Código postal del domicilio físico",
+            "nombre":                             "Nombre de la persona",
+            "nombre_completo":                    "Nombre completo",
+            "numero_documento":                   "DNI",
         },
         "domain": "personas_legajo",
         "is_scalar": False,
@@ -170,17 +176,23 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     "get_domicilios_abogados": {
         "description": (
             "Obtiene contactos y domicilios de los abogados globales. "
-            "Usar para: celular/email del defensor público, domicilio del abogado X."
+            "Usar para: celular/email del defensor público, domicilio del abogado X, "
+            "filtrar abogados que tienen domicilio en una provincia/ciudad determinada."
         ),
         "filters": {
-            "nombre":                   "Nombre del abogado",
-            "nombre_completo":          "Nombre completo del abogado",
-            "matricula":                "Matrícula",
-            "vinculo_descripcion":      "Tipo: 'defensor publico', 'defensor privado'",
-            "vinculo_codigo":           "Código del tipo",
-            "domicilios.digital_clase": "Tipo contacto: 'Celular', 'Teléfono', 'Email'",
-            "domicilios.digital_clase_codigo": "Código contacto: 'CEL', 'TEL', 'EMAIL'",
-            "domicilios.clase":         "Clase: 'FISICO', 'ELECTRONICO'",
+            "nombre":                             "Nombre del abogado",
+            "nombre_completo":                    "Nombre completo del abogado",
+            "matricula":                          "Matrícula",
+            "vinculo_descripcion":                "Tipo: 'defensor publico', 'defensor privado'",
+            "vinculo_codigo":                     "Código del tipo",
+            "domicilios.clase":                   "Tipo de domicilio: 'FISICO' (dirección) | 'ELECTRONICO' (contacto digital)",
+            "domicilios.digital_clase":           "Tipo de contacto digital: 'Celular' | 'Teléfono' | 'Email'",
+            "domicilios.digital_clase_codigo":    "Código contacto digital: 'CEL' | 'TEL' | 'EMAIL'",
+            "domicilios.domicilio.provincia":     "Provincia del domicilio físico (ej: 'CORRIENTES', 'BUENOS AIRES')",
+            "domicilios.domicilio.ciudad":        "Ciudad del domicilio físico (ej: 'CAPITAL', 'MERCEDES')",
+            "domicilios.domicilio.municipio":     "Municipio del domicilio físico",
+            "domicilios.domicilio.calle":         "Calle del domicilio físico (búsqueda parcial con op=contains)",
+            "domicilios.domicilio.cpostal":       "Código postal del domicilio físico",
         },
         "domain": "abogados_legajo",
         "is_scalar": False,
@@ -512,6 +524,9 @@ FUNCTION_KEYWORDS: Dict[str, List[str]] = {
         "celular persona", "telefono persona", "email persona",
         "contacto persona", "celular victima", "celular imputado",
         "telefono victima", "domicilio victima", "domicilio imputado",
+        "vive en", "quien vive en", "personas en corrientes", "personas en buenos aires",
+        "provincia persona", "ciudad persona", "municipio persona",
+        "donde vive", "domicilio en", "direccion en",
     ],
 
     "get_abogados_de_persona": [
@@ -550,6 +565,9 @@ FUNCTION_KEYWORDS: Dict[str, List[str]] = {
         "celular abogado", "telefono abogado", "email abogado",
         "contacto abogado", "direccion abogado",
         "celular defensor", "telefono defensor",
+        "abogado en corrientes", "abogado en buenos aires",
+        "provincia abogado", "ciudad abogado", "donde vive el abogado",
+        "domicilio del defensor", "donde vive el defensor",
     ],
 
     "get_representados_abogados": [

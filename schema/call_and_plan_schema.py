@@ -4,7 +4,7 @@ schema/call_and_plan_schema.py
 Modelos Pydantic para el plan de ejecución.
 
 Enfoque: Funciones Semánticas.
-El LLM elige función(es) + filtros → el backend ejecuta determinísticamente.
+El LLM elige función(es) + filtros + output_paths → el backend ejecuta determinísticamente.
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Any, Optional, Dict
@@ -23,7 +23,8 @@ class Step(BaseModel):
     """
     Un paso del plan semántico.
 
-    Cada step selecciona UNA función semántica con filtros opcionales.
+    Cada step selecciona UNA función semántica con filtros opcionales
+    y los paths exactos que se quieren devolver.
     Los steps pueden encadenarse con depends_on.
     """
     model_config = ConfigDict(extra="ignore")
@@ -31,6 +32,13 @@ class Step(BaseModel):
     step_id: int = Field(..., description="ID numérico del paso (1, 2, 3...)")
     function: str = Field(..., description="Nombre de la función semántica")
     filters: List[StepFilter] = Field(default_factory=list, description="Filtros a aplicar")
+    output_paths: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Paths a incluir en la respuesta (relativos al dominio). "
+            "Si es None o ['*'], se devuelven todos los paths de la función."
+        ),
+    )
     depends_on: Optional[int] = Field(
         default=None,
         description="ID del step del que depende (el resultado del padre filtra el hijo)"

@@ -628,6 +628,199 @@ FUNCTION_KEYWORDS: Dict[str, List[str]] = {
 
 
 # ═══════════════════════════════════════════════════════════════
+#  PATHS DISPONIBLES POR FUNCIÓN — visible al LLM
+#
+#  El LLM elige un subconjunto de estos paths según la consulta
+#  y los incluye en output_paths del step.
+#
+#  CONVENCIÓN (paths relativos al dominio de la función):
+#    - Campos de primer nivel: "nombre_completo", "matricula"
+#    - Sub-campos de una lista: "domicilios.domicilio.provincia"
+#    - Sub-campos de un objeto anidado: "caracteristicas.ocupacion"
+#    - ["*"] significa "devolver todo" (funciones escalares o consultas amplias)
+#
+#  REGLA: persona_id / abogado_id / funcionario_id siempre se
+#  incluyen automáticamente en el executor (no hace falta pedirlos).
+# ═══════════════════════════════════════════════════════════════
+
+FUNCTION_AVAILABLE_PATHS: Dict[str, List[str]] = {
+
+    "get_personas": [
+        "nombre_completo",
+        "numero_documento",
+        "cuil",
+        "genero",
+        "fecha_nacimiento",
+        "es_detenido",
+        "vinculos",
+    ],
+
+    "get_domicilios_personas": [
+        "nombre_completo",
+        "vinculos",
+        "domicilios.tipo",
+        "domicilios.clase",
+        "domicilios.digital_clase",
+        "domicilios.descripcion",
+        "domicilios.domicilio.pais",
+        "domicilios.domicilio.provincia",
+        "domicilios.domicilio.ciudad",
+        "domicilios.domicilio.municipio",
+        "domicilios.domicilio.calle",
+        "domicilios.domicilio.numero",
+        "domicilios.domicilio.piso",
+        "domicilios.domicilio.cpostal",
+        "domicilios.domicilio.barrio",
+    ],
+
+    "get_abogados_de_persona": [
+        "nombre_completo",
+        "vinculos",
+        "relacionados.nombre_completo",
+        "relacionados.numero_documento",
+        "relacionados.cuil",
+        "relacionados.matricula",
+        "relacionados.vinculo_descripcion",
+    ],
+
+    "get_contactos_abogados_de_persona": [
+        "nombre_completo",
+        "vinculos",
+        "relacionados.nombre_completo",
+        "relacionados.vinculo_descripcion",
+        "relacionados.domicilios.digital_clase",
+        "relacionados.domicilios.descripcion",
+    ],
+
+    "get_caracteristicas_personas": [
+        "nombre_completo",
+        "vinculos",
+        "es_detenido",
+        "caracteristicas.ocupacion",
+        "caracteristicas.estado_civil",
+        "caracteristicas.lugar_nacimiento",
+        "caracteristicas.nacionalidad",
+        "caracteristicas.es_menor",
+        "caracteristicas.nombre_madre",
+        "caracteristicas.nombre_padre",
+        "caracteristicas.cantidad_hijos",
+        "caracteristicas.nivel_educativo",
+    ],
+
+    "get_calificaciones_legales_personas": [
+        "nombre_completo",
+        "vinculos",
+        "calificaciones_legales",
+    ],
+
+    "get_abogados": [
+        "nombre_completo",
+        "numero_documento",
+        "cuil",
+        "matricula",
+        "vinculo_descripcion",
+        "vinculo_codigo",
+        "representados",
+    ],
+
+    "get_domicilios_abogados": [
+        "nombre_completo",
+        "matricula",
+        "vinculo_descripcion",
+        "domicilios.tipo",
+        "domicilios.clase",
+        "domicilios.digital_clase",
+        "domicilios.descripcion",
+        "domicilios.domicilio.pais",
+        "domicilios.domicilio.provincia",
+        "domicilios.domicilio.ciudad",
+        "domicilios.domicilio.municipio",
+        "domicilios.domicilio.calle",
+        "domicilios.domicilio.numero",
+        "domicilios.domicilio.cpostal",
+    ],
+
+    "get_representados_abogados": [
+        "nombre_completo",
+        "matricula",
+        "vinculo_descripcion",
+        "representados.nombre_completo",
+        "representados.numero_documento",
+        "representados.vinculo_descripcion",
+        "representados.domicilios",
+    ],
+
+    "get_funcionarios": [
+        "nombre_completo",
+        "numero_documento",
+        "cuil",
+        "cargo",
+        "domicilios",
+    ],
+
+    # Funciones escalares: paths concretos (el LLM elige un subconjunto)
+    "get_cabecera": [
+        "cuij",
+        "numero_expediente", "anio_expediente", "tipo_expediente",
+        "estado_expediente_codigo", "estado_expediente_descripcion",
+        "fecha_registro", "fecha_inicio", "fecha_modificacion",
+        "caratula_publica", "caratula_privada",
+        "organismo_codigo", "organismo_descripcion",
+        "dependencia_radicacion_codigo", "dependencia_radicacion_descripcion",
+        "etapa_procesal_codigo", "etapa_procesal_descripcion",
+        "ubicacion_actual_codigo", "ubicacion_actual_descripcion",
+        "secretaria_codigo", "secretaria_descripcion",
+        "tipo_proceso", "prioridad", "nivel_acceso",
+        "materias",
+        "usuario_alta", "usuario_baja", "usuario_modificacion",
+    ],
+
+    "get_causa": [
+        "causa_id",
+        "descripcion", "fecha_hecho", "forma_inicio",
+        "nivel_acceso_descripcion",
+        "caratula_publica", "caratula_privada",
+    ],
+
+    "get_delitos": [
+        "codigo", "descripcion", "grado_id", "orden",
+    ],
+
+    "get_radicaciones": [
+        "organismo_actual_codigo", "organismo_actual_descripcion",
+        "fecha_desde", "fecha_hasta",
+        "motivo_actual_codigo", "motivo_actual_descripcion",
+        "observaciones",
+    ],
+
+    "get_dependencias": [
+        "organismo_codigo", "organismo_descripcion",
+        "dependencia_codigo", "dependencia_descripcion",
+        "clase_codigo", "clase_descripcion",
+        "fecha_desde", "fecha_hasta",
+        "activo", "rol",
+    ],
+
+    "get_clasificadores": [
+        "clasificador_codigo", "clasificador_descripcion",
+        "clasificador_clase_codigo",
+    ],
+
+    "get_organismo_control": [
+        "organismo_codigo", "organismo_descripcion",
+    ],
+
+    "get_datos_sistema": [
+        "estado", "clave", "clave_causa",
+        "codigo_sistema", "codigo_entidad",
+        "servidor", "base_datos",
+        "fecha_creacion", "fecha_radicacion",
+        "fecha_auditoria", "fecha_auditoria_tmz",
+    ],
+}
+
+
+# ═══════════════════════════════════════════════════════════════
 #  HELPERS
 # ═══════════════════════════════════════════════════════════════
 
@@ -651,3 +844,8 @@ def is_scalar_domain(function_name: str) -> bool:
 def get_function_paths(function_name: str) -> List[str]:
     """Devuelve los paths reales que debe extraer una función."""
     return FUNCTION_PATHS.get(function_name, [])
+
+
+def get_available_paths(function_name: str) -> List[str]:
+    """Devuelve los paths que el LLM puede solicitar para una función."""
+    return FUNCTION_AVAILABLE_PATHS.get(function_name, ["*"])

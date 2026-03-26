@@ -503,5 +503,42 @@ def execute_plan(plan: Plan, json_data: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "steps": output_steps,
         "total_paths_used": unique_paths,
+        "query_string": _build_query_string(unique_paths),
         "total_records": total_records,
     }
+
+
+def _build_query_string(paths: List[str]) -> str:
+    """
+    Convierte total_paths_used al formato de query string de la API.
+
+    Solo incluye paths que tienen valor (filtros aplicados):
+      - "campo = valor"  → campo=valor
+
+    Paths de salida sin valor se omiten (no son válidos en Postman).
+    Múltiples valores para el mismo campo se unen con "," (OR implícito).
+    Campos distintos se unen con "&" (AND implícito).
+
+    Ejemplo de salida:
+      personas_legajo.vinculos.descripcion_vinculo=victima&personas_legajo.caracteristicas.es_menor=true
+    """
+    from collections import OrderedDict
+
+    filter_fields: "OrderedDict[str, List[str]]" = OrderedDict()
+
+    for entry in paths:
+        if " = " in entry:
+            field, value = entry.split(" = ", 1)
+            field, value = field.strip(), value.strip()
+            if field not in filter_fields:
+                filter_fields[field] = []
+            if value not in filter_fields[field]:
+                filter_fields[field].append(value)
+
+    if not filter_fields:
+        return ""
+
+    return "&".join(
+        f"{field}={','.join(values)}"
+        for field, values in filter_fields.items()
+    )

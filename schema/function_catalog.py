@@ -241,9 +241,21 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
             "Obtiene los datos generales del expediente: CUIJ, número, año, tipo, "
             "estado, carátulas, fechas, organismo, etapa procesal, secretaría, "
             "ubicación actual, materias y usuarios responsables. "
-            "Usar para cualquier dato general del expediente."
+            "Usar para cualquier dato general del expediente. "
+            "IMPORTANTE: etapa_procesal_descripcion es la fase/etapa del expediente "
+            "(ej: 'Preparatoria', 'Juicio', 'Prueba', 'Ejecución', 'Sentencia'). "
+            "Usar este campo cuando la consulta mencione fase, etapa, instancia procesal."
         ),
-        "filters": {},
+        "filters": {
+            "etapa_procesal_descripcion":    "Fase/etapa del expediente: 'Preparatoria', 'Juicio', 'Prueba', 'Ejecución', 'Sentencia', etc.",
+            "etapa_procesal_codigo":         "Código de la etapa procesal: 'ET_PRE', 'ET_JUI', 'ET_PRU', etc.",
+            "estado_expediente_descripcion": "Estado del expediente: 'Iniciado', 'En trámite', 'Archivado', 'Paralizado', etc.",
+            "estado_expediente_codigo":      "Código del estado: 'INIT', 'TRAM', 'ARCH', etc.",
+            "tipo_expediente":               "Tipo de expediente: 'LJU', 'EXP', etc.",
+            "prioridad":                     "Prioridad: 'MODERADO', 'ALTO', 'BAJO', etc.",
+            "organismo_descripcion":         "Nombre del organismo donde está radicado",
+            "ubicacion_actual_descripcion":  "Descripción de la ubicación actual del expediente",
+        },
         "domain": "cabecera_legajo",
         "is_scalar": True,
     },

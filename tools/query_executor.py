@@ -625,6 +625,9 @@ def _build_query_string(steps_filters: List[Dict[str, Any]]) -> str:
       - same_entity = True      → envuelve el grupo con SAME_ENTITY(...)
 
     Los grupos se unen entre sí siempre con AND.
+    Se deduplicán filtros sueltos idénticos que aparezcan en múltiples steps.
+    Los grupos compuestos (SAME_ENTITY, NOT, OR, multi-filtro) nunca se deduplicán
+    entre sí porque su semántica depende del contexto completo del grupo.
     """
     def _fmt(f: Dict[str, Any], domain: str) -> str:
         raw_field = f.get("field", "")
@@ -650,6 +653,7 @@ def _build_query_string(steps_filters: List[Dict[str, Any]]) -> str:
         return f"{field}={value}"
 
     groups: List[str] = []
+    seen_simple: set = set()   # ← track de filtros sueltos ya emitidos
 
     for step in steps_filters:
         filters     = step.get("filters",     [])
@@ -661,26 +665,38 @@ def _build_query_string(steps_filters: List[Dict[str, Any]]) -> str:
         if not filters:
             continue
 
-        parts = [_fmt(f, domain) for f in filters]
-        sep   = f" {filter_op} "
+        is_compound = same_entity or negate or filter_op == "OR" or len(filters) > 1
 
-        # Caso simple: un solo filtro sin modificadores → sin paréntesis extra
-        if len(parts) == 1 and not same_entity and not negate:
-            groups.append(parts[0])
-            continue
+        if is_compound:
+            # ── Grupo compuesto: deduplicar filtros DENTRO del grupo ──
+            parts: List[str] = []
+            seen_in_group: set = set()
+            for f in filters:
+                part = _fmt(f, domain)
+                if part not in seen_in_group:
+                    seen_in_group.add(part)
+                    parts.append(part)
 
-        inner = sep.join(parts)
+            if not parts:
+                continue
 
-        # Aplicar SAME_ENTITY como envoltorio más interno
-        if same_entity:
-            group = f"SAME_ENTITY({inner})"
+            sep   = f" {filter_op} "
+            inner = sep.join(parts)
+
+            if same_entity:
+                group = f"SAME_ENTITY({inner})"
+            else:
+                group = f"({inner})" if len(parts) > 1 else inner
+
+            if negate:
+                group = f"NOT {group}"
+
+            groups.append(group)
         else:
-            group = f"({inner})" if len(parts) > 1 else inner
-
-        # Aplicar NOT como envoltorio externo
-        if negate:
-            group = f"NOT {group}"
-
-        groups.append(group)
+            # ── Filtro suelto: deduplicar entre steps ──
+            part = _fmt(filters[0], domain)
+            if part not in seen_simple:
+                seen_simple.add(part)
+                groups.append(part)
 
     return " AND ".join(groups)

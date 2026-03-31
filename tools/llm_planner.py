@@ -77,7 +77,54 @@ REGLAS GENERALES:
 5. No encadenes steps si la respuesta está en una sola función.
 6. depends_on SOLO cuando necesitas el resultado del step anterior para filtrar el siguiente.
 7. Los values en filters son siempre strings.
-8. Operadores: eq (igual exacto) | contains (contiene, case-insensitive) | gte (>=) | lte (<=)
+8. Operadores de comparación: eq (igual exacto) | contains (contiene, case-insensitive) | gte (>=) | lte (<=) | neq (distinto)
+
+OPERADORES LÓGICOS (campos opcionales del step):
+• "filter_op": "AND" (default) | "OR"
+    AND → todos los filtros del step deben cumplirse (default, no hace falta declararlo).
+    OR  → basta con que UN filtro se cumpla.
+    Ejemplo OR: filtrar personas que sean imputadas O víctimas.
+
+• "negate": false (default) | true
+    Si true → NOT: excluye los registros que cumplan los filtros.
+    Ejemplo: excluir causas en estado archivado.
+
+• "same_entity": false (default) | true
+    Si true → SAME_ENTITY: todos los filtros deben cumplirse sobre el MISMO
+    sub-elemento de una lista anidada. Usar cuando la consulta exige que UNA
+    SOLA entidad cumpla simultáneamente TODAS las condiciones.
+    Ejemplo: "el imputado Martín Sosa que además está detenido" → same_entity=true
+    sobre [vinculos.descripcion_vinculo=imputado, nombre_completo=Martin Sosa, es_detenido=true].
+    SIN same_entity el motor podría tomar tres personas distintas y dar falso positivo.
+
+    ══ REGLA ABSOLUTA DE SAME_ENTITY ══
+    Una consulta sobre UNA entidad = UN SOLO step con same_entity=true.
+    TODOS los filtros de esa entidad van juntos en ese step, sin excepción.
+    NUNCA generes un segundo step con filtros que ya están en el SAME_ENTITY.
+    NUNCA dividas los filtros de la misma entidad en dos steps.
+
+    ❌ MAL — consulta "Martín Sosa imputado, domicilio en Goya, detenido":
+    step1: same_entity=true, filters=[imputado, Sosa, detenido]
+    step2: filters=[Sosa, Goya]   ← PROHIBIDO, Sosa ya está en step1
+
+    ✅ BIEN — misma consulta:
+    step1: same_entity=true, filters=[imputado, Sosa, detenido, Goya]  ← todo junto, un step
+
+CUÁNDO USAR CADA OPERADOR:
+  OR:          "víctima o querellante", "actor o demandado", "cualquiera de los roles"
+  NOT:         "que no esté archivado", "que no sea menor", "excluir imputados"
+  SAME_ENTITY: "el imputado X que además tiene domicilio en Y",
+               "la víctima menor que además está detenida",
+               "mismo [rol + nombre + condición adicional] sobre una persona"
+
+REGLA ANTI-REDUNDANCIA — OBLIGATORIA:
+  Antes de generar el plan, verificá: ¿algún filtro de un step nuevo repite
+  información que ya está en otro step? Si sí → no generes ese step, fusionalo.
+  Un mismo campo (nombre, rol, ciudad) NUNCA debe aparecer en dos steps distintos
+  si ambos hablan de la misma entidad.
+  Cantidad correcta de steps = cantidad de ENTIDADES DISTINTAS en la consulta.
+  "Martín Sosa imputado en Goya detenido" → 1 entidad → 1 step.
+  "Martín Sosa imputado + víctima menor" → 2 entidades → 2 steps.
 
 REGLAS DE output_paths:
 1. Incluir SOLO los paths que respondan directamente la consulta del usuario.
@@ -102,6 +149,37 @@ REGLA ESPECIAL — "mayor de edad / no es menor":
   con filtro {{"field": "caracteristicas.es_menor", "op": "eq", "value": "false"}}.
   NO usar fecha_nacimiento ni otro campo.
 
+REGLA ESPECIAL — consulta con domicilio + otras condiciones (nombre, rol, detenido):
+  Si la consulta mezcla domicilio ("vive en X", "domicilio en Y") con otras condiciones
+  sobre la MISMA persona (nombre, rol, es_detenido), usar SIEMPRE get_domicilios_personas.
+  get_domicilios_personas tiene: vinculos, nombre_completo, es_detenido Y domicilios.
+  NO usar get_caracteristicas_personas cuando hay filtro de domicilio — esa función
+  no tiene el campo domicilios y el filtro de ciudad/provincia se perderá.
+
+REGLA ESPECIAL — nombres de personas en consultas sobre causa/delito/etapa:
+  causa.descripcion es un texto libre CORTO (ej: "robo en poblado"). NO contiene nombres.
+  causa.nivel_acceso_descripcion es un campo de acceso, NO es la etapa procesal.
+  NUNCA filtres nombres de personas en causa, materia_delitos ni cabecera_legajo.
+
+  Cuando la consulta mezcla nombres de personas con datos de causa/delito/etapa,
+  siempre generá steps SEPARADOS:
+    - Nombres/roles de personas  → get_personas (o get_domicilios_personas si hay domicilio)
+    - Delito/descripcion causa   → get_delitos o get_causa
+    - Etapa procesal / estado    → get_cabecera
+
+  Roles procesales como "actor", "demandado", "querellante", "imputado", "victima"
+  SIEMPRE se buscan en personas_legajo.vinculos.descripcion_vinculo.
+  NUNCA en causa.descripcion.
+
+  ❌ MAL — "causas de Manuel contra Thiago por explotación laboral en fase de prueba":
+  step1: get_causa, filters=[descripcion contains Manuel, descripcion contains Thiago, ...]
+
+  ✅ BIEN — misma consulta:
+  step1: get_personas, same_entity=true, filters=[nombre_completo contains Manuel, vinculos=actor]
+  step2: get_personas, same_entity=true, filters=[nombre_completo contains Thiago, vinculos=demandado]
+  step3: get_delitos, filters=[descripcion contains explotacion laboral]
+  step4: get_cabecera, filters=[etapa_procesal_descripcion contains prueba]
+
 REGLA ESPECIAL — "todos los celulares del expediente":
   Lanzar steps INDEPENDIENTES (sin depends_on) para:
   - get_domicilios_personas (filtro domicilios.digital_clase = Celular)
@@ -114,6 +192,9 @@ ESTRUCTURA:
     {{
       "step_id": 1,
       "function": "nombre_funcion",
+      "filter_op": "AND",
+      "negate": false,
+      "same_entity": false,
       "filters": [
         {{"field": "campo", "op": "operador", "value": "valor"}}
       ],
@@ -266,6 +347,82 @@ EJEMPLOS:
   "output_paths": ["ubicacion_actual_codigo", "ubicacion_actual_descripcion", "dependencia_radicacion_codigo", "dependencia_radicacion_descripcion"]
 }}]}}
 
+"personas que sean víctimas o querellantes"
+{{"steps": [{{"step_id": 1, "function": "get_personas",
+  "filter_op": "OR",
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}},
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "querellante"}}
+  ],
+  "output_paths": ["nombre_completo", "numero_documento", "vinculos"]
+}}]}}
+
+"causas que no estén archivadas"
+{{"steps": [{{"step_id": 1, "function": "get_cabecera",
+  "negate": true,
+  "filters": [{{"field": "estado_expediente_descripcion", "op": "contains", "value": "archivado"}}],
+  "output_paths": ["cuij", "numero_expediente", "estado_expediente_descripcion", "etapa_procesal_descripcion"]
+}}]}}
+
+"causas de Manuel contra Thiago por explotación laboral en fase de prueba"
+{{"steps": [
+  {{"step_id": 1, "function": "get_personas",
+   "same_entity": true,
+   "filters": [
+     {{"field": "nombre_completo", "op": "contains", "value": "Manuel"}},
+     {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "actor"}}
+   ],
+   "output_paths": ["nombre_completo", "vinculos", "numero_documento"]}},
+  {{"step_id": 2, "function": "get_personas",
+   "same_entity": true,
+   "filters": [
+     {{"field": "nombre_completo", "op": "contains", "value": "Thiago"}},
+     {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "demandado"}}
+   ],
+   "output_paths": ["nombre_completo", "vinculos", "numero_documento"]}},
+  {{"step_id": 3, "function": "get_delitos",
+   "filters": [{{"field": "descripcion", "op": "contains", "value": "explotacion laboral"}}],
+   "output_paths": ["codigo", "descripcion"]}},
+  {{"step_id": 4, "function": "get_cabecera",
+   "filters": [{{"field": "etapa_procesal_descripcion", "op": "contains", "value": "prueba"}}],
+   "output_paths": ["cuij", "numero_expediente", "etapa_procesal_descripcion", "estado_expediente_descripcion"]}}
+]}}
+
+"el imputado Martín Sosa que está detenido"
+{{"steps": [{{"step_id": 1, "function": "get_caracteristicas_personas",
+  "same_entity": true,
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "imputado"}},
+    {{"field": "nombre_completo", "op": "contains", "value": "Martin Sosa"}},
+    {{"field": "es_detenido", "op": "eq", "value": "true"}}
+  ],
+  "output_paths": ["nombre_completo", "vinculos", "es_detenido", "caracteristicas.ocupacion"]
+}}]}}
+
+"Martin Sosa figure como imputado, tenga domicilio en Goya y esté detenido"
+{{"steps": [{{"step_id": 1, "function": "get_domicilios_personas",
+  "same_entity": true,
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "imputado"}},
+    {{"field": "nombre_completo", "op": "contains", "value": "Martin Sosa"}},
+    {{"field": "es_detenido", "op": "eq", "value": "true"}},
+    {{"field": "domicilios.domicilio.ciudad", "op": "eq", "value": "GOYA"}}
+  ],
+  "output_paths": ["nombre_completo", "vinculos", "es_detenido", "domicilios.domicilio.provincia", "domicilios.domicilio.ciudad", "domicilios.domicilio.calle"]
+}}]}}
+
+"víctima menor que no esté detenida"
+{{"steps": [{{"step_id": 1, "function": "get_caracteristicas_personas",
+  "same_entity": true,
+  "negate": false,
+  "filters": [
+    {{"field": "vinculos.descripcion_vinculo", "op": "contains", "value": "victima"}},
+    {{"field": "caracteristicas.es_menor", "op": "eq", "value": "true"}},
+    {{"field": "es_detenido", "op": "eq", "value": "false"}}
+  ],
+  "output_paths": ["nombre_completo", "vinculos", "caracteristicas.es_menor", "es_detenido"]
+}}]}}
+
 SOLO devuelve JSON."""
 
 
@@ -338,6 +495,9 @@ def _validate_step(step_dict: Dict[str, Any]) -> Optional[Step]:
         step_id=step_dict.get("step_id", 0),
         function=func_name,
         filters=filters,
+        filter_op=step_dict.get("filter_op", "AND").upper(),
+        negate=bool(step_dict.get("negate", False)),
+        same_entity=bool(step_dict.get("same_entity", False)),
         output_paths=output_paths,
         depends_on=step_dict.get("depends_on"),
     )

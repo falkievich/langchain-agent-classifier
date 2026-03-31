@@ -101,9 +101,87 @@ def _apply_filter(record: Dict[str, Any], filt: StepFilter) -> bool:
     return False
 
 
-def _matches_all_filters(record: Dict[str, Any], filters: List[StepFilter]) -> bool:
-    """Verifica que un registro pase TODOS los filtros (AND lógico)."""
+def _matches_filters(record: Dict[str, Any], filters: List[StepFilter], filter_op: str = "AND") -> bool:
+    """
+    Verifica que un registro pase los filtros según el operador lógico indicado.
+      AND → todos los filtros deben cumplirse.
+      OR  → al menos uno debe cumplirse.
+    """
+    if not filters:
+        return True
+    if filter_op == "OR":
+        return any(_apply_filter(record, f) for f in filters)
     return all(_apply_filter(record, f) for f in filters)
+
+
+def _matches_same_entity(record: Dict[str, Any], filters: List[StepFilter], filter_op: str = "AND") -> bool:
+    """
+    Versión SAME_ENTITY: todos los filtros deben cumplirse sobre el MISMO
+    sub-elemento de una lista anidada (ej: mismo objeto de 'vinculos').
+
+    Algoritmo:
+      1. Detecta el top-level key de los filtros que tienen path anidado
+         (ej: "vinculos.descripcion_vinculo" → top = "vinculos").
+      2. Para cada elemento de esa lista, verifica si el sub-elemento
+         satisface TODOS los filtros contra él.
+      3. Los filtros de campos planos (sin lista) se evalúan normalmente.
+
+    Si no hay paths anidados con listas → delega a _matches_filters normal.
+    """
+    if not filters:
+        return True
+
+    # Separar filtros planos de filtros anidados
+    nested_filters: Dict[str, List[StepFilter]] = {}   # top_key → [filters]
+    flat_filters: List[StepFilter] = []
+
+    for f in filters:
+        parts = f.field.split(".", 1)
+        if len(parts) == 2:
+            top_key = parts[0]
+            val = record.get(top_key)
+            if isinstance(val, list):
+                nested_filters.setdefault(top_key, []).append(f)
+                continue
+        flat_filters.append(f)
+
+    # Si no hay filtros anidados sobre listas → comportamiento normal
+    if not nested_filters:
+        return _matches_filters(record, filters, filter_op)
+
+    # Evaluar filtros planos primero
+    if flat_filters and not _matches_filters(record, flat_filters, filter_op):
+        return False
+
+    # Para cada grupo de filtros anidados, buscar UN elemento de la lista
+    # que satisfaga TODOS los filtros de ese grupo (la misma entidad)
+    for top_key, grp_filters in nested_filters.items():
+        sub_list = record.get(top_key, []) or []
+        if not isinstance(sub_list, list):
+            return False
+
+        # Crear filtros "relativos" al sub-elemento (quitar el prefijo top_key)
+        relative_filters = []
+        for f in grp_filters:
+            _, sub_path = f.field.split(".", 1)
+            relative_filters.append(StepFilter(field=sub_path, op=f.op, value=f.value))
+
+        # Verificar que ALGÚN elemento de la lista satisfaga TODOS los filtros relativos
+        found = any(
+            _matches_filters(item, relative_filters, "AND")
+            for item in sub_list
+            if isinstance(item, dict)
+        )
+        if not found:
+            return False
+
+    return True
+
+
+# Alias para compatibilidad con código existente
+def _matches_all_filters(record: Dict[str, Any], filters: List[StepFilter]) -> bool:
+    """Alias legacy: AND sobre todos los filtros."""
+    return _matches_filters(record, filters, "AND")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -386,8 +464,11 @@ def _execute_step(
     if is_scalar:
         if isinstance(raw_data, dict):
             record = _extract_fields(raw_data, paths)
-            if step.filters and not _matches_all_filters(raw_data, step.filters):
-                records = []
+            if step.filters:
+                match = _matches_filters(raw_data, step.filters, getattr(step, "filter_op", "AND"))
+                if getattr(step, "negate", False):
+                    match = not match
+                records = [] if not match else [record]
             else:
                 records = [record]
         else:
@@ -417,7 +498,18 @@ def _execute_step(
 
     # Aplicar filtros propios
     if step.filters:
-        collection = [rec for rec in collection if _matches_all_filters(rec, step.filters)]
+        filter_op   = getattr(step, "filter_op",   "AND")
+        negate      = getattr(step, "negate",      False)
+        same_entity = getattr(step, "same_entity", False)
+
+        def _record_matches(rec: Dict[str, Any]) -> bool:
+            if same_entity:
+                match = _matches_same_entity(rec, step.filters, filter_op)
+            else:
+                match = _matches_filters(rec, step.filters, filter_op)
+            return (not match) if negate else match
+
+        collection = [rec for rec in collection if _record_matches(rec)]
 
     # Extraer campos
     records = [_extract_fields(rec, paths) for rec in collection]
@@ -474,6 +566,7 @@ def execute_plan(plan: Plan, json_data: Dict[str, Any]) -> Dict[str, Any]:
                 ...
             ],
             "total_paths_used": ["personas_legajo.nombre", ...],
+            "query_string": "(campo1=valor1 AND campo2=valor2) AND campo3=valor3",
             "total_records": 5
         }
     """
@@ -481,6 +574,8 @@ def execute_plan(plan: Plan, json_data: Dict[str, Any]) -> Dict[str, Any]:
     output_steps = []
     all_paths: List[str] = []
     total_records = 0
+    # Acumula los filtros de cada step en orden, para query_string agrupada
+    steps_filters: List[List[Dict[str, Any]]] = []
 
     for step in plan.steps:
         result = _execute_step(step, json_data, step_results)
@@ -488,57 +583,104 @@ def execute_plan(plan: Plan, json_data: Dict[str, Any]) -> Dict[str, Any]:
         # Guardar registros para depends_on
         step_results[step.step_id] = result.get("records", [])
 
-        # Acumular paths
+        # Acumular paths (para total_paths_used)
         all_paths.extend(result.get("paths_used", []))
         total_records += result.get("record_count", 0)
+
+        # Acumular filtros agrupados por step (para query_string)
+        steps_filters.append({
+            "filters":     result.get("filters_applied", []),
+            "domain":      result.get("domain", ""),
+            "filter_op":   getattr(step, "filter_op",   "AND"),
+            "negate":      getattr(step, "negate",      False),
+            "same_entity": getattr(step, "same_entity", False),
+        })
 
         output_steps.append({
             "step_id": step.step_id,
             **result,
         })
 
-    # Deduplica paths
+    # Deduplica paths manteniendo orden
     unique_paths = list(dict.fromkeys(all_paths))
 
     return {
         "steps": output_steps,
         "total_paths_used": unique_paths,
-        "query_string": _build_query_string(unique_paths),
+        "query_string": _build_query_string(steps_filters),
         "total_records": total_records,
     }
 
 
-def _build_query_string(paths: List[str]) -> str:
+def _build_query_string(steps_filters: List[Dict[str, Any]]) -> str:
     """
-    Convierte total_paths_used al formato de query string de la API.
+    Construye la query string agrupando los filtros por step.
 
-    Solo incluye paths que tienen valor (filtros aplicados):
-      - "campo = valor"  → campo=valor
+    Cada filtro se prefija con el dominio del step:
+      personas_legajo.vinculos.descripcion_vinculo contains imputado
 
-    Paths de salida sin valor se omiten (no son válidos en Postman).
-    Múltiples valores para el mismo campo se unen con "," (OR implícito).
-    Campos distintos se unen con "&" (AND implícito).
+    Modificadores por step:
+      - filter_op   = AND | OR  → une las condiciones dentro del grupo
+      - negate      = True      → envuelve el grupo con NOT(...)
+      - same_entity = True      → envuelve el grupo con SAME_ENTITY(...)
 
-    Ejemplo de salida:
-      personas_legajo.vinculos.descripcion_vinculo=victima&personas_legajo.caracteristicas.es_menor=true
+    Los grupos se unen entre sí siempre con AND.
     """
-    from collections import OrderedDict
+    def _fmt(f: Dict[str, Any], domain: str) -> str:
+        raw_field = f.get("field", "")
+        op        = f.get("op", "eq")
+        value     = f.get("value", "")
 
-    filter_fields: "OrderedDict[str, List[str]]" = OrderedDict()
+        # Prefijar con dominio si no es _root y el field no lo tiene ya
+        if domain and domain != "_root" and not raw_field.startswith(domain + "."):
+            field = f"{domain}.{raw_field}"
+        else:
+            field = raw_field
 
-    for entry in paths:
-        if " = " in entry:
-            field, value = entry.split(" = ", 1)
-            field, value = field.strip(), value.strip()
-            if field not in filter_fields:
-                filter_fields[field] = []
-            if value not in filter_fields[field]:
-                filter_fields[field].append(value)
+        if op == "eq":
+            return f"{field}={value}"
+        elif op == "contains":
+            return f"{field} contains {value}"
+        elif op == "gte":
+            return f"{field}>={value}"
+        elif op == "lte":
+            return f"{field}<={value}"
+        elif op == "neq":
+            return f"{field}!={value}"
+        return f"{field}={value}"
 
-    if not filter_fields:
-        return ""
+    groups: List[str] = []
 
-    return "&".join(
-        f"{field}={','.join(values)}"
-        for field, values in filter_fields.items()
-    )
+    for step in steps_filters:
+        filters     = step.get("filters",     [])
+        domain      = step.get("domain",      "")
+        filter_op   = step.get("filter_op",   "AND")
+        negate      = step.get("negate",      False)
+        same_entity = step.get("same_entity", False)
+
+        if not filters:
+            continue
+
+        parts = [_fmt(f, domain) for f in filters]
+        sep   = f" {filter_op} "
+
+        # Caso simple: un solo filtro sin modificadores → sin paréntesis extra
+        if len(parts) == 1 and not same_entity and not negate:
+            groups.append(parts[0])
+            continue
+
+        inner = sep.join(parts)
+
+        # Aplicar SAME_ENTITY como envoltorio más interno
+        if same_entity:
+            group = f"SAME_ENTITY({inner})"
+        else:
+            group = f"({inner})" if len(parts) > 1 else inner
+
+        # Aplicar NOT como envoltorio externo
+        if negate:
+            group = f"NOT {group}"
+
+        groups.append(group)
+
+    return " AND ".join(groups)

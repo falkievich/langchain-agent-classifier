@@ -1,20 +1,52 @@
+"""
+schema/call_and_plan_schema.py
+──────────────────────────────
+Modelos Pydantic para el plan de ejecución.
+
+Enfoque: Funciones Semánticas.
+El LLM elige función(es) + filtros + output_paths → el backend ejecuta determinísticamente.
+"""
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Any
+from typing import List, Any, Optional, Dict
 
-# -------- Schema/Models --------
-# Modelos Pydantic que definen el contrato del Planner:
-# - Call: nombre de tool + args posicionales.
-# - Plan: lista de Calls que el Executor correrá en paralelo.
 
-class Call(BaseModel):
-    """Una invocación a tool con argumentos posicionales."""
-    model_config = ConfigDict(extra='ignore')  # Ignorar campos extras
-    
-    tool: str = Field(..., description="Nombre exacto de la tool registrada")
-    args: List[Any] = Field(default_factory=list, description="Argumentos posicionales")
+class StepFilter(BaseModel):
+    """Un filtro a aplicar sobre los datos del dominio."""
+    model_config = ConfigDict(extra="ignore")
+
+    field: str = Field(..., description="Campo por el cual filtrar")
+    op: str = Field(default="contains", description="Operador: 'eq', 'contains', 'gte', 'lte'")
+    value: str = Field(..., description="Valor a comparar (siempre string)")
+
+
+class Step(BaseModel):
+    """
+    Un paso del plan semántico.
+
+    Cada step selecciona UNA función semántica con filtros opcionales
+    y los paths exactos que se quieren devolver.
+    Los steps pueden encadenarse con depends_on.
+    """
+    model_config = ConfigDict(extra="ignore")
+
+    step_id: int = Field(..., description="ID numérico del paso (1, 2, 3...)")
+    function: str = Field(..., description="Nombre de la función semántica")
+    filters: List[StepFilter] = Field(default_factory=list, description="Filtros a aplicar")
+    output_paths: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Paths a incluir en la respuesta (relativos al dominio). "
+            "Si es None o ['*'], se devuelven todos los paths de la función."
+        ),
+    )
+    depends_on: Optional[int] = Field(
+        default=None,
+        description="ID del step del que depende (el resultado del padre filtra el hijo)"
+    )
+
 
 class Plan(BaseModel):
-    """Plan ejecutable: secuencia de llamadas (orden preservado para el bundle)."""
-    model_config = ConfigDict(extra='ignore')  # Ignorar campos extras
-    
-    calls: List[Call] = Field(default_factory=list)
+    """Plan ejecutable: secuencia de steps semánticos."""
+    model_config = ConfigDict(extra="ignore")
+
+    steps: List[Step] = Field(default_factory=list, description="Pasos del plan")

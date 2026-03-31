@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict, Union
 from dotenv import load_dotenv
 from classes.custom_llm_classes import CustomOpenWebLLM
-from funcs.langchain.core import PERSON_EXTRACTION_SYSTEM, PERSON_EXTRACTION_USER_TMPL
+from services.prompts import PERSON_EXTRACTION_SYSTEM, PERSON_EXTRACTION_USER_TMPL
 
 load_dotenv()
 

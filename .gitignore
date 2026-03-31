@@ -16,3 +16,6 @@
 /routes/__pycache__
 /schema/__pycache__
 /services/__pycache__
+**/__pycache__
+kill_python_processes.py
+**.md

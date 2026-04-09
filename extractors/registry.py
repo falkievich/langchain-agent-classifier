@@ -13,7 +13,6 @@ from typing import Any, Dict, List
 from schema.function_catalog import (
     FUNCTION_CATALOG,
     FUNCTION_PATHS,
-    FUNCTION_KEYWORDS,
     get_function_names,
     get_function_domain,
     is_scalar_domain,

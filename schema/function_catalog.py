@@ -6,7 +6,6 @@ Catálogo de funciones semánticas para el sistema de consultas.
 ARQUITECTURA:
   - FUNCTION_CATALOG: Lo que ve el LLM (nombre, descripción, filtros posibles).
   - FUNCTION_PATHS:   Lo que NO ve el LLM (paths reales del JSON por función).
-  - FUNCTION_KEYWORDS: Palabras clave para el router determinístico (fallback).
 
 El LLM elige función(es) + filtros opcionales.
 El backend traduce eso a paths reales y ejecuta sobre el JSON.
@@ -26,12 +25,23 @@ from typing import Any, Dict, List
 FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     # ── PERSONAS ──────────────────────────────────────────────
+    # Dominio: personas_legajo (LISTA de personas involucradas en el expediente)
+    # Son las PARTES PROCESALES del expediente: víctimas, imputados, actores,
+    # demandados, querellantes, denunciantes, testigos.
+    # NO son abogados ni funcionarios judiciales.
+    # Cada persona tiene: datos personales, vinculos (rol procesal),
+    # domicilios/contactos, caracteristicas sociales, relacionados (abogados embebidos),
+    # y calificaciones legales.
 
     "get_personas": {
         "description": (
-            "Obtiene personas del expediente con sus datos personales y rol procesal. "
+            "Obtiene las PARTES PROCESALES del expediente: víctimas, imputados, actores, "
+            "demandados, querellantes, denunciantes, testigos. Devuelve datos personales "
+            "(nombre, DNI, CUIL, fecha de nacimiento, género) y su rol procesal (vinculos). "
+            "NO devuelve abogados ni funcionarios. "
             "Usar para: listar personas, buscar por nombre/DNI, filtrar por rol "
-            "(victima, imputado, actor, demandado, querellante)."
+            "(victima, imputado, actor, demandado, querellante, testigo, denunciante), "
+            "saber si alguien está detenido."
         ),
         "filters": {
             "vinculos.descripcion_vinculo": "Rol procesal: 'victima', 'imputado', 'actor', 'demandado'",
@@ -50,10 +60,13 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_domicilios_personas": {
         "description": (
-            "Obtiene los domicilios y contactos (celular, teléfono, email, domicilio físico) "
-            "de las personas del expediente. "
-            "Usar para: domicilios de víctimas, celulares de imputados, emails de personas, "
-            "filtrar personas que viven en una provincia/ciudad/municipio determinada."
+            "Obtiene los domicilios y contactos de las PARTES PROCESALES (personas, NO abogados). "
+            "Los domicilios pueden ser FISICOS (dirección real: provincia, ciudad, calle) o "
+            "ELECTRONICOS/DIGITALES (celular, teléfono, email). "
+            "Usar para: dirección de una víctima, celular de un imputado, email de un testigo, "
+            "filtrar personas que viven en una provincia/ciudad/municipio determinada. "
+            "También usar cuando la consulta combina domicilio con otras condiciones "
+            "(nombre + rol + ciudad + detenido) sobre la MISMA persona."
         ),
         "filters": {
             "vinculos.descripcion_vinculo":       "Rol procesal: 'victima', 'imputado', 'actor', 'demandado'",
@@ -76,11 +89,14 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_abogados_de_persona": {
         "description": (
-            "Obtiene los abogados/defensores embebidos dentro de una persona del expediente. "
+            "Obtiene los abogados/defensores EMBEBIDOS dentro de una persona del expediente "
+            "(están en personas_legajo → relacionados). "
             "Usar para: 'abogado de la víctima', 'defensor del imputado', "
             "'quién defiende a [persona]'. "
-            "IMPORTANTE: estos abogados están dentro de personas_legajo.relacionados, "
-            "NO en abogados_legajo."
+            "IMPORTANTE: estos abogados están DENTRO de la persona en personas_legajo.relacionados, "
+            "NO en abogados_legajo. "
+            "Usar esta función cuando se pregunta por el abogado DE una persona específica "
+            "(por su rol o nombre). Si se pregunta por abogados en general, usar get_abogados."
         ),
         "filters": {
             "vinculos.descripcion_vinculo":     "Rol de la persona defendida: 'victima', 'imputado'",
@@ -97,8 +113,10 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_contactos_abogados_de_persona": {
         "description": (
-            "Obtiene los contactos/domicilios de los abogados embebidos en personas. "
-            "Usar para: 'celular del abogado de la víctima', 'email del defensor del imputado'."
+            "Obtiene los contactos/domicilios de los abogados EMBEBIDOS dentro de personas. "
+            "Usar para: 'celular del abogado de la víctima', 'email del defensor del imputado'. "
+            "NOTA: si se pide el contacto de un abogado general (no vinculado a una persona), "
+            "usar get_domicilios_abogados en su lugar."
         ),
         "filters": {
             "vinculos.descripcion_vinculo":            "Rol de la persona: 'victima', 'imputado'",
@@ -115,9 +133,13 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_caracteristicas_personas": {
         "description": (
-            "Obtiene características sociales de las personas: ocupación, estado civil, "
-            "nivel educativo, lugar de nacimiento, nombre de padres, cantidad de hijos. "
-            "Usar para: perfil social de imputados, si es menor, datos familiares."
+            "Obtiene el PERFIL SOCIAL de las partes procesales: ocupación, estado civil, "
+            "nivel educativo, lugar de nacimiento, nacionalidad, nombre de padres, "
+            "cantidad de hijos, si es menor de edad. "
+            "Usar para: saber si alguien es menor, ocupación de un imputado, "
+            "datos familiares de una víctima, nivel educativo. "
+            "NO usar si la consulta involucra domicilios (usar get_domicilios_personas). "
+            "NO confundir con datos del expediente (eso es cabecera_legajo)."
         ),
         "filters": {
             "vinculos.descripcion_vinculo":     "Rol: 'victima', 'imputado'",
@@ -137,7 +159,9 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_calificaciones_legales_personas": {
         "description": (
-            "Obtiene las calificaciones legales asociadas a las personas del expediente."
+            "Obtiene las calificaciones legales asociadas a las personas (partes procesales) "
+            "del expediente. Ejemplo: grado de participación, calificación penal específica. "
+            "NO confundir con delitos del expediente (eso es get_delitos)."
         ),
         "filters": {
             "vinculos.descripcion_vinculo": "Rol: 'victima', 'imputado'",
@@ -151,13 +175,24 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     },
 
     # ── ABOGADOS (registro global) ─────────────────────────────
+    # Dominio: abogados_legajo (LISTA de abogados registrados en el expediente)
+    # Son los PROFESIONALES JURÍDICOS: defensores (públicos, privados, oficiales),
+    # apoderados, asesores de menores e incapaces, querellantes particulares.
+    # Cada abogado tiene: datos personales, matrícula, tipo de vínculo jurídico,
+    # domicilios/contactos propios, y la lista de personas que representan.
+    # NO son partes procesales (víctimas/imputados/actores) → esos van en personas_legajo.
+    # NO son funcionarios judiciales (fiscales/jueces) → esos van en funcionarios.
 
     "get_abogados": {
         "description": (
-            "Obtiene los abogados registrados globalmente en el expediente "
-            "(no los embebidos en personas). Incluye matrícula, tipo de defensor "
-            "y las personas que representan. "
-            "Usar para: listar defensores, buscar por matrícula, ver representados."
+            "Obtiene los ABOGADOS registrados globalmente en el expediente. "
+            "Son profesionales jurídicos: defensores (públicos, privados, oficiales), "
+            "apoderados, asesores de menores. "
+            "Incluye: nombre, DNI, matrícula, tipo de defensor/vínculo, y las personas que representan. "
+            "Usar para: listar todos los abogados, buscar un abogado por nombre/matrícula, "
+            "ver qué tipo de defensor es (público, privado, asesor de menores). "
+            "NO confundir con personas del expediente (víctimas, imputados → get_personas). "
+            "NO confundir con funcionarios judiciales (fiscal, juez → get_funcionarios)."
         ),
         "filters": {
             "nombre":              "Nombre del abogado",
@@ -175,9 +210,11 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_domicilios_abogados": {
         "description": (
-            "Obtiene contactos y domicilios de los abogados globales. "
-            "Usar para: celular/email del defensor público, domicilio del abogado X, "
-            "filtrar abogados que tienen domicilio en una provincia/ciudad determinada."
+            "Obtiene contactos y domicilios de los ABOGADOS globales del expediente. "
+            "Los domicilios pueden ser FISICOS (estudio jurídico, defensoría) o "
+            "DIGITALES (celular, email). "
+            "Usar para: celular/email de un defensor público, domicilio del abogado X, "
+            "filtrar abogados por provincia/ciudad de su estudio."
         ),
         "filters": {
             "nombre":                             "Nombre del abogado",
@@ -200,9 +237,11 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_representados_abogados": {
         "description": (
-            "Obtiene las personas representadas por cada abogado del expediente. "
+            "Obtiene las personas REPRESENTADAS por cada abogado del expediente. "
+            "Muestra qué persona (víctima, actor, demandado) defiende cada abogado. "
             "Incluye datos del representado, su rol procesal y domicilios. "
-            "Usar para: 'a quién representa el defensor público', 'representados del abogado X'."
+            "Usar para: 'a quién representa el defensor público', 'representados del abogado X', "
+            "'clientes del defensor privado'."
         ),
         "filters": {
             "nombre":                              "Nombre del abogado",
@@ -218,11 +257,20 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     },
 
     # ── FUNCIONARIOS ──────────────────────────────────────────
+    # Dominio: funcionarios (LISTA de funcionarios judiciales asignados al expediente)
+    # Son los OPERADORES DE JUSTICIA: fiscales, jueces, secretarios, asesores, auxiliares.
+    # NO son abogados (defensores) → esos van en abogados_legajo.
+    # NO son partes procesales (víctimas/imputados) → esos van en personas_legajo.
+    # Sus domicilios suelen ser solo un email institucional.
 
     "get_funcionarios": {
         "description": (
-            "Obtiene los funcionarios judiciales del expediente: fiscales, jueces, "
-            "secretarios. Incluye cargo, datos personales y email."
+            "Obtiene los FUNCIONARIOS JUDICIALES asignados al expediente: fiscales, jueces, "
+            "secretarios, auxiliares fiscales, asesores de menores (en su rol de funcionario). "
+            "Incluye cargo, datos personales y email institucional. "
+            "NO confundir con abogados/defensores (→ get_abogados). "
+            "NO confundir con personas/partes procesales (→ get_personas). "
+            "Usar para: quién es el fiscal, datos del juez, email del secretario."
         ),
         "filters": {
             "nombre_completo":  "Nombre del funcionario",
@@ -234,17 +282,28 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
         "is_scalar": False,
     },
 
-    # ── EXPEDIENTE ────────────────────────────────────────────
+    # ── EXPEDIENTE / CABECERA ────────────────────────────────
+    # Dominio: cabecera_legajo (OBJETO escalar con metadatos administrativos del expediente)
+    # Contiene toda la información ADMINISTRATIVA del legajo: CUIJ, número, año, tipo,
+    # estado, carátulas, etapa procesal, prioridad, organismo, secretaría, ubicación,
+    # materias, fechas de alta/modificación y usuarios responsables.
+    # NO contiene personas, abogados, ni funcionarios.
+    # NO contiene la descripción del hecho (eso es causa).
+    # NO contiene datos técnicos del sistema (eso es _root → get_datos_sistema).
 
     "get_cabecera": {
         "description": (
-            "Obtiene los datos generales del expediente: CUIJ, número, año, tipo, "
-            "estado, carátulas, fechas, organismo, etapa procesal, secretaría, "
-            "ubicación actual, materias y usuarios responsables. "
-            "Usar para cualquier dato general del expediente. "
-            "IMPORTANTE: etapa_procesal_descripcion es la fase/etapa del expediente "
-            "(ej: 'Preparatoria', 'Juicio', 'Prueba', 'Ejecución', 'Sentencia'). "
-            "Usar este campo cuando la consulta mencione fase, etapa, instancia procesal."
+            "Obtiene los DATOS ADMINISTRATIVOS del expediente: CUIJ, número, año, tipo, "
+            "estado (Iniciado, En trámite, Archivado), carátulas, etapa procesal "
+            "(Preparatoria, Juicio, Prueba, Ejecución, Sentencia, Investigación Penal Preparatoria), "
+            "prioridad, organismo donde está radicado, secretaría, ubicación actual, "
+            "materias, tipo de proceso, y usuarios responsables (alta, modificación). "
+            "Usar para cualquier dato general/administrativo del expediente. "
+            "IMPORTANTE: etapa_procesal_descripcion = fase/etapa del expediente. "
+            "Usar este campo cuando la consulta mencione fase, etapa, instancia procesal. "
+            "NO contiene nombres de personas, abogados ni funcionarios. "
+            "NO contiene la descripción del hecho ni la fecha del hecho (eso es get_causa). "
+            "NO contiene datos técnicos como servidor, base de datos o código de sistema (eso es get_datos_sistema)."
         ),
         "filters": {
             "etapa_procesal_descripcion":    "Fase/etapa del expediente: 'Preparatoria', 'Juicio', 'Prueba', 'Ejecución', 'Sentencia', etc.",
@@ -262,8 +321,13 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_causa": {
         "description": (
-            "Obtiene los datos del hecho que origina el expediente: descripción, "
-            "fecha del hecho, forma de inicio y carátulas de la causa."
+            "Obtiene los datos del HECHO que origina el expediente: descripción narrativa "
+            "del hecho, fecha del hecho, forma de inicio (denuncia, ampliación, de oficio) "
+            "y carátulas. "
+            "La descripción es un texto libre corto (ej: 'sustracción violenta de pertenencias'). "
+            "NO contiene nombres de personas (esos van en personas_legajo). "
+            "NO contiene delitos tipificados (esos van en materia_delitos → get_delitos). "
+            "Usar para: qué pasó, cuándo ocurrió el hecho, cómo se inició la causa."
         ),
         "filters": {},
         "domain": "causa",
@@ -271,7 +335,13 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     },
 
     "get_delitos": {
-        "description": "Obtiene los delitos y materias asociados al expediente.",
+        "description": (
+            "Obtiene los DELITOS y materias tipificados en el expediente "
+            "(ej: 'ROBO AGRAVADO', 'LESIONES LEVES', 'AMENAZAS', 'APREMIO'). "
+            "Cada delito tiene un código y una descripción. "
+            "NO confundir con la descripción narrativa del hecho (eso es get_causa). "
+            "NO contiene nombres de personas."
+        ),
         "filters": {
             "codigo":      "Código del delito",
             "descripcion": "Descripción del delito",
@@ -282,8 +352,9 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_radicaciones": {
         "description": (
-            "Obtiene el historial de radicaciones del expediente: "
-            "movimientos entre organismos, motivos y fechas."
+            "Obtiene el HISTORIAL DE RADICACIONES del expediente: cada movimiento entre "
+            "organismos (fiscalía → juzgado → fiscalía), con fechas y motivos. "
+            "Usar para: por dónde pasó el expediente, cuándo se movió, motivo de cada traslado."
         ),
         "filters": {
             "organismo_actual_codigo":      "Código del organismo",
@@ -298,8 +369,11 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_dependencias": {
         "description": (
-            "Obtiene los organismos y dependencias que intervinieron en el expediente. "
-            "Incluye clase, jerarquía, rol y períodos de actuación."
+            "Obtiene los ORGANISMOS Y DEPENDENCIAS que intervinieron en el expediente "
+            "(fiscalías, juzgados, asesorías, oficinas judiciales). "
+            "Incluye clase, jerarquía, rol (LEGAJO_OWNER, LEGAJO_VISTA, CONTROL_JUDICIAL) "
+            "y períodos de actuación. "
+            "NO confundir con radicaciones (que son los movimientos → get_radicaciones)."
         ),
         "filters": {
             "organismo_codigo":       "Código del organismo",
@@ -314,7 +388,11 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     },
 
     "get_clasificadores": {
-        "description": "Obtiene los clasificadores administrativos del expediente.",
+        "description": (
+            "Obtiene los CLASIFICADORES administrativos del expediente: etiquetas que "
+            "categorizan el legajo (ej: 'CONSUMADO', 'PLURIPARTICIPACION', "
+            "'VICTIMA MENOR DE EDAD', 'CON MEDIDA DE COERCION')."
+        ),
         "filters": {
             "clasificador_codigo":      "Código del clasificador",
             "clasificador_descripcion": "Descripción del clasificador",
@@ -324,7 +402,12 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
     },
 
     "get_organismo_control": {
-        "description": "Obtiene el organismo de control asociado al expediente.",
+        "description": (
+            "Obtiene el ORGANISMO DE CONTROL asociado al expediente "
+            "(ej: el juzgado de garantías que supervisa). "
+            "NO confundir con dependencias (→ get_dependencias) ni con "
+            "el organismo de radicación actual (→ get_cabecera)."
+        ),
         "filters": {},
         "domain": "organismo_control",
         "is_scalar": True,
@@ -332,8 +415,15 @@ FUNCTION_CATALOG: Dict[str, Dict[str, Any]] = {
 
     "get_datos_sistema": {
         "description": (
-            "Obtiene los datos técnicos/sistema del legajo: clave, clave_causa, "
-            "código de sistema, estado del procesamiento, servidor, base de datos, fechas de auditoría."
+            "Obtiene los datos TÉCNICOS/SISTEMA del legajo: clave interna, clave_causa, "
+            "codigo_sistema (ej: 'THEMIS', 'iurixweb', 'iurixcl'), codigo_entidad, "
+            "estado del procesamiento (PROCESADO, PENDIENTE), servidor, base de datos, "
+            "fechas de auditoría y de creación. "
+            "Usar cuando se pregunta de qué sistema proviene el legajo, "
+            "datos internos de procesamiento, o si se mencionan palabras como "
+            "'iurixweb', 'THEMIS', 'iurixcl', 'criminis' (son valores de codigo_sistema). "
+            "NO confundir con datos administrativos del expediente (→ get_cabecera). "
+            "NO confundir con estado del expediente (Iniciado/En trámite → get_cabecera)."
         ),
         "filters": {},
         "domain": "_root",
@@ -514,127 +604,6 @@ FUNCTION_PATHS: Dict[str, List[str]] = {
         "seguridad",
         "fecha_radicacion", "fecha_control",
         "fecha_auditoria", "fecha_auditoria_tmz",
-    ],
-}
-
-
-# ═══════════════════════════════════════════════════════════════
-#  KEYWORDS PARA ROUTER DETERMINÍSTICO (fallback sin LLM)
-# ═══════════════════════════════════════════════════════════════
-
-FUNCTION_KEYWORDS: Dict[str, List[str]] = {
-
-    "get_personas": [
-        "persona", "personas", "imputado", "victima", "actor", "demandado",
-        "querellante", "denunciante", "testigo", "detenido",
-        "listar personas", "todas las personas", "quienes participan",
-        "involucrados", "nombre persona", "dni persona",
-    ],
-
-    "get_domicilios_personas": [
-        "domicilio persona", "domicilios personas", "direccion persona",
-        "celular persona", "telefono persona", "email persona",
-        "contacto persona", "celular victima", "celular imputado",
-        "telefono victima", "domicilio victima", "domicilio imputado",
-        "vive en", "quien vive en", "personas en corrientes", "personas en buenos aires",
-        "provincia persona", "ciudad persona", "municipio persona",
-        "donde vive", "domicilio en", "direccion en",
-    ],
-
-    "get_abogados_de_persona": [
-        "abogado de la victima", "abogado del imputado",
-        "defensor del imputado", "defensor de la victima",
-        "quien defiende", "quien representa a la persona",
-        "abogado de persona", "defensor de persona",
-    ],
-
-    "get_contactos_abogados_de_persona": [
-        "celular abogado victima", "telefono defensor imputado",
-        "email abogado de persona", "contacto defensor de",
-        "celular del abogado de la victima", "celular del defensor del imputado",
-    ],
-
-    "get_caracteristicas_personas": [
-        "caracteristicas", "caracteristica persona", "perfil social",
-        "ocupacion", "estado civil", "nivel educativo",
-        "lugar nacimiento", "nombre madre", "nombre padre",
-        "menor", "es menor", "datos familiares",
-    ],
-
-    "get_calificaciones_legales_personas": [
-        "calificaciones legales", "calificacion legal",
-        "calificacion persona",
-    ],
-
-    "get_abogados": [
-        "abogado", "abogados", "defensor", "defensores",
-        "todos los abogados", "listar abogados",
-        "matricula", "defensor publico", "defensor privado",
-    ],
-
-    "get_domicilios_abogados": [
-        "domicilio abogado", "domicilios abogados",
-        "celular abogado", "telefono abogado", "email abogado",
-        "contacto abogado", "direccion abogado",
-        "celular defensor", "telefono defensor",
-        "abogado en corrientes", "abogado en buenos aires",
-        "provincia abogado", "ciudad abogado", "donde vive el abogado",
-        "domicilio del defensor", "donde vive el defensor",
-    ],
-
-    "get_representados_abogados": [
-        "representado", "representados", "a quien representa",
-        "cliente abogado", "clientes",
-    ],
-
-    "get_funcionarios": [
-        "funcionario", "funcionarios", "fiscal", "juez", "secretario",
-        "todos los funcionarios", "email funcionario",
-        "domicilio funcionario", "cargo",
-    ],
-
-    "get_cabecera": [
-        "expediente", "cabecera", "legajo", "cuij", "caratula",
-        "informacion general", "datos generales", "estado expediente",
-        "tipo expediente", "numero expediente", "año expediente",
-        "etapa procesal", "prioridad", "organismo", "secretaria",
-        "ubicacion actual", "tipo proceso", "fecha inicio", "fecha modificacion",
-    ],
-
-    "get_causa": [
-        "causa", "hecho", "fecha hecho", "forma inicio",
-        "de que se trata", "que paso", "caratula causa",
-    ],
-
-    "get_delitos": [
-        "delito", "delitos", "materia", "materias",
-        "codigo delito", "que delito",
-    ],
-
-    "get_radicaciones": [
-        "radicacion", "radicaciones", "movimiento", "movimientos",
-        "motivo radicacion", "por donde paso",
-    ],
-
-    "get_dependencias": [
-        "dependencia", "dependencias", "organismos que intervinieron",
-        "por que dependencias paso", "instituciones",
-    ],
-
-    "get_clasificadores": [
-        "clasificador", "clasificadores", "clasificacion",
-        "categorias", "tipo legajo",
-    ],
-
-    "get_organismo_control": [
-        "organismo control", "quien controla",
-        "organismo de control",
-    ],
-
-    "get_datos_sistema": [
-        "datos sistema", "sistema", "codigo sistema", "codigo entidad",
-        "estado legajo", "procesado", "servidor", "base datos",
-        "clave causa", "seguridad", "auditoria",
     ],
 }
 

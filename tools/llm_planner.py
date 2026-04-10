@@ -719,8 +719,8 @@ def generate_plan_with_llm(user_prompt: str) -> Plan:
     Returns:
         Plan con steps semánticos.
     """
-    from classes.custom_llm_classes import OpenAILLM
-    llm = OpenAILLM()
+    from classes.custom_llm_classes import get_llm
+    llm = get_llm()
     llm.system_prompt = _SYSTEM_PROMPT   # ← cacheado por OpenAI en llamadas repetidas
 
     user_text = _USER_TEMPLATE.format(prompt=user_prompt)

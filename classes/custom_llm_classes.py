@@ -3,12 +3,14 @@ classes/custom_llm_classes.py
 ──────────────────────────────
 Clases LLM personalizadas.
 
-  · CustomOpenWebLLM  → cliente HTTP genérico (Open WebUI / Ollama) — mantenido por compatibilidad
-  · OpenAILLM         → cliente oficial de OpenAI con:
-        - Caché del system prompt (cached_content vía prompt caching de OpenAI)
-        - Conteo de tokens y requests con prints detallados
-        - Modelo configurable desde .env con variable OPENAI_MODEL
-        - Parámetros de eficiencia (temperatura baja, max_tokens limitado)
+  · OpenAILLM         → cliente oficial de OpenAI con prompt caching, conteo de tokens
+                        y modelo configurable desde .env (OPENAI_MODEL).
+  · CustomOpenWebLLM  → cliente HTTP genérico para Open WebUI / Ollama local.
+
+  · get_llm()         → FACTORY — devuelve la instancia correcta según LLM_BACKEND en .env:
+                          LLM_BACKEND=openai   → OpenAILLM
+                          LLM_BACKEND=openweb  → CustomOpenWebLLM
+                        Es el único punto de entrada que deben usar los servicios.
 """
 
 import os
@@ -45,6 +47,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 # Opciones: gpt-4.1-nano | gpt-4.1-mini | gpt-4o-mini | gpt-4o | gpt-4.1 | o4-mini
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
 # ▲▲▲────────────────────────────────────────────────────────────
+
+# ── Backend activo ──────────────────────────────────────────────
+# Controla qué LLM se usa en TODO el sistema.
+# Cambiar en .env: LLM_BACKEND=openai  |  LLM_BACKEND=openweb
+LLM_BACKEND = os.getenv("LLM_BACKEND", "openai").strip().lower()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -242,15 +249,23 @@ class OpenAILLM(LLM):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  CustomOpenWebLLM  (mantenido por compatibilidad)
+#  CustomOpenWebLLM
 # ═══════════════════════════════════════════════════════════════
 
 class CustomOpenWebLLM(LLM):
-    """LLM genérico para conectarse a Open WebUI o Ollama (HTTP directo)."""
+    """
+    LLM genérico para conectarse a Open WebUI o Ollama (HTTP directo).
+
+    Soporta system_prompt para ser intercambiable con OpenAILLM.
+    El system_prompt se inyecta como mensaje 'system' en el payload.
+    """
 
     base_url: str = BASE_URL or ""
     api_key: str = API_KEY or ""
     model: str = MODEL_ID or ""
+    temperature: float = 0.0
+    max_tokens: int = 512
+    system_prompt: str = ""        # mismo campo que OpenAILLM → intercambiables
 
     @property
     def _llm_type(self) -> str:
@@ -261,17 +276,26 @@ class CustomOpenWebLLM(LLM):
         if self.api_key and self.api_key.lower() != "ollama":
             headers["Authorization"] = f"Bearer {self.api_key}"
 
+        # Usar system_prompt si está seteado, si no usar el mensaje genérico
+        system_content = (
+            self.system_prompt
+            if self.system_prompt
+            else "Eres un asistente experto en expedientes judiciales."
+        )
+
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": "Eres un asistente experto en expedientes judiciales."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": system_content},
+                {"role": "user",   "content": prompt},
             ],
         }
 
+        print(f"\n[OpenWebUI] 🔍 Modelo: {self.model}  |  URL: {self.base_url}")
+
         resp = requests.post(self.base_url, headers=headers, json=payload, timeout=120)
         resp.raise_for_status()
-        text = resp.json()["choices"][0]["message"]["content"]
+        text = resp.json()["choices"][0]["message"]["content"] or ""
 
         if stop:
             for s in stop:
@@ -283,3 +307,29 @@ class CustomOpenWebLLM(LLM):
     @property
     def _identifying_params(self) -> dict:
         return {"model": self.model, "base_url": self.base_url}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  FACTORY — único punto de entrada para instanciar el LLM
+# ═══════════════════════════════════════════════════════════════
+
+def get_llm() -> LLM:
+    """
+    Devuelve la instancia LLM activa según LLM_BACKEND en .env.
+
+    LLM_BACKEND=openai   → OpenAILLM   (API oficial de OpenAI)
+    LLM_BACKEND=openweb  → CustomOpenWebLLM  (Open WebUI / Ollama local)
+
+    Uso en cualquier servicio:
+        from classes.custom_llm_classes import get_llm
+        llm = get_llm()
+        llm.system_prompt = "..."
+        result = llm._call(prompt)
+    """
+    if LLM_BACKEND == "openweb":
+        print(f"[get_llm] 🖥  Backend: Open WebUI  |  modelo: {MODEL_ID}")
+        return CustomOpenWebLLM()
+
+    # Default: openai
+    print(f"[get_llm] ☁  Backend: OpenAI  |  modelo: {OPENAI_MODEL}")
+    return OpenAILLM()

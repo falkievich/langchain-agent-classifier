@@ -2,20 +2,25 @@ import json
 import os
 from typing import Any, Dict, Union
 from dotenv import load_dotenv
-from classes.custom_llm_classes import CustomOpenWebLLM
+from classes.custom_llm_classes import get_llm
 from services.prompts import PERSON_EXTRACTION_SYSTEM, PERSON_EXTRACTION_USER_TMPL
 
 load_dotenv()
 
-def get_extraction_llm() -> CustomOpenWebLLM:
-    """Crea una instancia del LLM usando MODEL_ID_2 para extracción de personas."""
-    model_id_2 = os.getenv("MODEL_ID_2")
-    if not model_id_2:
-        raise ValueError("MODEL_ID_2 no está configurado en el archivo .env")
-    
-    # Crear instancia del LLM con el modelo alternativo
-    llm = CustomOpenWebLLM()
-    llm.model = model_id_2
+def get_extraction_llm():
+    """
+    Crea una instancia del LLM activo para extracción de personas.
+    Si el backend es openweb y MODEL_ID_2 está definido, lo usa en lugar de MODEL_ID.
+    """
+    from classes.custom_llm_classes import LLM_BACKEND
+    llm = get_llm()
+
+    # En modo openweb se puede sobrescribir con MODEL_ID_2 si está definido
+    if LLM_BACKEND == "openweb":
+        model_id_2 = os.getenv("MODEL_ID_2")
+        if model_id_2:
+            llm.model = model_id_2
+
     return llm
 
 

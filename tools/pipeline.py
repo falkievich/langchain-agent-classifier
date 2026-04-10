@@ -24,6 +24,7 @@ from typing import Any, Dict
 from tools.llm_planner import generate_plan_with_llm
 from tools.deterministic_router import route_query
 from tools.executor import execute_plan
+from funcs.helpers_and_utility.query_string_to_params import enrich_result_with_query_params
 
 
 async def run_pipeline(
@@ -52,6 +53,9 @@ async def run_pipeline(
 
     # 3. Ejecutar
     result = await execute_plan(plan, json_data)
+
+    # 3b. Agregar query_params (traducción URL de query_string)
+    result = enrich_result_with_query_params(result)
 
     # 4. Resultado con metadata del plan
     output: Dict[str, Any] = {

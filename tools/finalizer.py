@@ -10,7 +10,7 @@ La planificación es 100% determinística.
 import json
 from typing import Any, Dict, List
 
-from classes.custom_llm_classes import CustomOpenWebLLM
+from classes.custom_llm_classes import get_llm
 
 FINALIZER_SYSTEM = (
     "Eres un asistente jurídico experto. Tu tarea es redactar una respuesta clara y precisa "
@@ -56,7 +56,7 @@ def finalize_with_llm(user_prompt: str, result: Dict[str, Any]) -> str:
     if len(bundle_json) > 15000:
         bundle_json = bundle_json[:15000] + "\n... (datos truncados)"
 
-    llm = CustomOpenWebLLM()
+    llm = get_llm()
     prompt = (
         f"{FINALIZER_SYSTEM}\n\n"
         f"{FINALIZER_USER.format(user_prompt=user_prompt, bundle_json=bundle_json)}"
